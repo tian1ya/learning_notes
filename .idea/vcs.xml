@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/DevOps/k8s/尚硅谷课程/资料/javaproject/demojenkins" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/bigData/spark/config-and-tuning" vcs="Git" />
+  </component>
+</project>

@@ -73,7 +73,7 @@ mysql 中使用 `B-树` 数据结构做索引的 数据结构。
 * 单值索引： 单列(一个表可以有多个单值索引)，可以是null
 * 主键索引：单列(一个表可以有多个单值索引)，但是不能为null
 * 唯一索引：不能重复，ru `age` 字段不能做唯一索引，因为会存在多行数据相同的值(很多人都会是23岁)，一般这样的索引会是 `id`
-* 符合索引：多个列构成的索引(二级目录)，如 `age` 和 `name` 去索引确定唯一的人，根据 `age` 定位到20岁的人，然后在去找 20 岁的 `xxx`
+* 复合索引：多个列构成的索引(二级目录)，如 `age` 和 `name` 去索引确定唯一的人，根据 `age` 定位到20岁的人，然后在去找 20 岁的 `xxx`
 
 ```sql
 -- 创建所有方式 1
@@ -84,7 +84,7 @@ create index dept_index on tb(dept);
 create unique index name_index on tb(name);
 
 -- 复合索引
-create index dept_name_index on tb(dept, name);
+create index dept_name, index_name on tb(dept, name);
 
 -- 第一种方式创建的索引在 Drop 表之后所有就都没有了
 
@@ -182,11 +182,11 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
 
 * `PRIMARY` 主查询
 
-* `SAIMPLE` 简单查询，不包含子查询和 `union` 查询
+* `SAMPLE` 简单查询，不包含子查询和 `union` 查询
 * `DERIVED`: 衍生查询，使用到了临时表，
   * 在from 子查询中只有一张表， `select cr.cid from (select * from course where cname='sql') cr`（但是我使用的mysql 版本中只输出 `SIMPLE` 的select_type）
   * 在 from 的子查询中，如果有 `table1 union table2` 则 table1 就是 `Derived`,table2 就是 `UNION` 表, `explain select cr.cname from (select * from course where cid =1 union select * from course where cid =2) cr;`,  
-* `UNIION`
+* `UNION`
 * `UNION_RESULT` 上面的例子中，table1和table2 的union 结果
 
 **type**： 索引类型
@@ -200,7 +200,7 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > ```sql
   > create table test01(
   > 	tid int(3),
-  >   tname varchar(20)
+  > tname varchar(20)
   > );
   > 
   > insert into test01 values(1, '11');
@@ -221,7 +221,7 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > alter table teacherCard add constraint pk_tcid primary key(tcid);
   > alter table teacher add constraint uk_tcid unique index(tcid);
   > 
-  > select t.tcid from teacher t, teacherCard tc where t.tcid=tcc.tcid;
+  > select t.tcid from teacher t, teacherCard tc where t.tcid=tc.tcid;
   > ```
   >
   > 当 `t` 和 `tc` 的数据是完全一样的时候，这个 是输出的 `type` 就会是 `eq_ref`如果tc的数据多一点，那么2张表的匹配就不能完全匹配，出现索引查询结果出现0条数据的情况，也就是`teacher` 表中的数据多于 `teacherCard` 表
@@ -231,14 +231,249 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > insert into teacher values(5, 'tw',5);
   > insert into teacher values(6, 'tk',6);
   > 
-  > select t.tcid from teacher t, teacherCard tc where t.tcid=tcc.tcid;
+  > select t.tcid from teacher t, teacherCard tc where t.tcid=tc.tcid;
   > ```
   >
-  > `teacher` 的条数是6，但是只查询出来3条，这个时候出现的就是 `ref` 的类型。**`eq_ref`这个也是基本达不到的。**
+  > `teacher` 的条数是6，但是只查询出来3条，这个时候出现的就是 `ref` 的类型。**`eq_ref`这个也是基本达不到的。结果有多条数据，但是每条数据都是唯一的**
   >
   > **以上的3种类型基本是达不到的**
   >
   > ---
   >
   > **ref**： 非唯一性索引，对于每个索引键的查询，返回所匹配的的所有行(0行或者多行)
+  >
+  > **返回多条数据，但是每条数据是0或者多条**
+  >
+  > **range**: 范围查询，检索指定范围的行，where后面是一个范围查询，between、in、> < = 等查询， in 有时候会失效，返回all 的类型
+  >
+  > ```sql
+  > alter table teacher add index tid_index (tid)
+  > explain select * from teacher t where t.tid<3;
+  > ```
+  >
+  > 返回的 type 就是 range 的
+  >
+  > **index**： 查询全部索引的数据，将索引树全部查询了一遍
+  >
+  > ```sql
+  > --在上面的步骤中，我们已经给 tid 加了索引
+  > explain select tid from teacher;
+  > -- 这个时候，我们查询的是 tid 这个所有列，也就是仅仅遍历了索引表
+  > -- 不需要扫描全部数据
+  > ```
+  >
+  > **all**：查询所有表中的数据查询一遍
+  >
+  > ```sql
+  > -- cid 是没有索引的
+  > explain select cid from course;
+  > -- 这里出来的type 就是 ALL的 type，会全表扫描
+  > ```
+
+  #### possoble_keys
+
+  > 可能用到的索引，是一种预测，不准
+
+  #### keys
+
+  > 实际使用的索引
+
+  ```sql
+  +---------------+---------+
+  | possible_keys | key     |
+  +---------------+---------+
+  | PRIMARY       | PRIMARY |
+  | uk_tcid       | uk_tcid |
+  +---------------+---------+
+  ```
+
+  #### key_len
+
+  > 索引的长度
+
+  ```sql
+  +---------+
+  | key_len |
+  +---------+
+  | 5       |
+  +---------+
+  ```
+
+  > 用于判断符合索引是否全部使用
+  >
+  > ```sql
+  > create table test_kl(
+  >   name char(20) not null default ''
+  > );
+  > 
+  > alter table test_kl add index index_name(name);
+  > explain select * from test_kl where name=''
+  > 
+  > +------------+---------+
+  > | key        | key_len |
+  > +------------+---------+
+  > | index_name | 20      |
+  > +------------+---------+
+  > 
+  > -- 使用到了 index_name 的索引
+  > 
+  > alter table test_kl add column name1 char(20); -- 可以为空
+  > alter table test_kl add index index_name1(name1);
+  > 
+  > explain select * from test_kl where name1=''
+  > +------------+---------+
+  > | key        | key_len |
+  > +------------+---------+
+  > | index_name | 21      |
+  > +------------+---------+
+  > -- 对于索引字段可以为NULL ，会使用1个字节用于标识
+  > 
+  > -- 删除索引
+  > DROP INDEX index_name on test_kl;
+  > DROP INDEX index_name1 on test_kl;
+  > 
+  > -- 创建一个复合索引
+  > ALTER TABLE test_kl add index name_name1_index(name, name1);
+  > 
+  > explain select * from test_kl where name1=''
+  > +------------+---------+
+  > | key        | key_len |
+  > +------------+---------+
+  > | name_name1_index | 41|
+  > +------------+---------+
+  > -- 符合索引，在使用 name1 的时候必须先使用了 name
+  > 
+  > explain select * from test_kl where name=''
+  > +------------+---------+
+  > | key        | key_len |
+  > +------------+---------+
+  > | name_name1_index | 20|
+  > +------------+---------+
+  > 
+  > -- -- 符合索引，在使用使用了 name 可以查出来，那么久使用第一个
+  > 
+  > 
+  > alter table test_kl add column name2 varchar(20); -- 可以为空
+  > alter table test_kl add index index_name2(name2);
+  > explain select * from test_kl where name2=''
+  > 
+  > explain select * from test_kl where name=''
+  > +------------+---------+
+  > | key        | key_len |
+  > +------------+---------+
+  > | name_name1_index | 23|
+  > +------------+---------+
+  > -- 可变长度的类型，再增加2个字符表示，所以这里的长度 20 + 1+ 2 = 23
+  > ```
+
+  #### rows
+
+  > 被所有优化查询的数据个数
+  >
+  > ```sql
+  > explain select t.tcid from teacher t, teacherCard tc where t.tcid=tc.tcid;
+  > 
+  > +------+
+  > | rows |
+  > |    5 |
+  > +------+
+  > ```
+
+  #### Extra
+
+  > 常见的值：
+  >
+  > using filesort: 性能太低，消耗比较大，说明当前sql 需要额外查找排序
+  >
+  > ```sql
+  > create table test02(
+  > 	al char(3),
+  >   a2 char(3),
+  >   a3 char(3),
+  >   index index_al(al),
+  >   index index_a3(a3),
+  >   index index_a2(a2)
+  > );
+  > 
+  > explain select * from test02 where a1='' order by a2;
+  > +---------------------------------------+
+  > | Extra                                 |
+  > +---------------------------------------+
+  > | Using index condition; Using filesort |
+  > +---------------------------------------+
+  > -- 查询完，然后在排序，如果 sql
+  > explain select * from test02 where a1='' order by al;
+  > -- 那么输出的Extra 字段是没有值的，
+  > -- 但是如果order by 的字段和where 的字段不一样，那么在where 查询
+  > -- 完之后，发现并没有 a2, 那么在根据 a2 查询/排序一次
+  > ```
+  >
+  > 以上是单索引的情况，在符复合引下：
+  >
+  > 不能跨列，最佳左前缀
+  >
+  > ```sql
+  > DROP INDEX index_al on test02;
+  > DROP INDEX index_a2 on test02;
+  > DROP INDEX index_a3 on test02;
+  > 
+  > alter table test02 add index idx_al_a2_a3(al,a2,a3);
+  > 
+  > select * from test02 where al='' order by a3;
+  > -- 这里从al然后在到 a3，跨了a2 所以这里发生了跨列，Extra 字段
+  > -- Using where; Using index; Using filesort
+  > 
+  > explain select * from test02 where al='' order by a2;
+  > -- 这里就没有  Using filesort 了
+  > 
+  > explain select * from test02 where a2='' order by a3;
+  > -- 这里也跨越了 a1
+  > ```
+  >
+  > where 和 order by 按照复合索引的顺序，不能跨列
+  >
+  > **use temporary**
+  >
+  > 说明创建了临时表，一般在group by 语句中
+  >
+  > ```sql
+  > explain select al from test02 where al='' group by a3;
+  > +---------------------------------------+
+  > | Extra                                 |
+  > +---------------------------------------+
+  > | Using where; Using index; Using temporary; Using filesort |
+  > +---------------------------------------+
+  > 
+  > -- 避免出现这种情况，那就是查询什么，然后group by 什么
+  > explain select al from test02 where al='' group by al;
+  > ```
+  >
+  > 出现的原因，已经有表了，但是不合适，必须在来一张表
+  >
+  > 解析过程
+  >
+  > ```sql
+  > from .. on .. where .. group by .. having .. select distinct .. order by limit ...
+  > ```
+  >
+  > 现在查询
+  >
+  > ```sql
+  > explain select * from test02 where a2='2' and al='2' group by a2,a3;
+  > 
+  > -- 这个时候是没有  Using temporary
+  > 
+  > explain select * from test02 where a2='2' and al='2' group by a3;
+  > ```
+  >
+  > #### using index
+  >
+  > > 性能提升，索引覆盖，只从索引中获取数据，不需要回表查询
+  >
+  > ```sql
+  > select a1 from test02
+  > -- a1 是索引，这个时候就在索引中获取数据，不会去表里查数据
+  > ```
+
+  
 

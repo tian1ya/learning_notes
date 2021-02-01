@@ -12,7 +12,7 @@
 * ScheduledThreadPoolExecutor：ScheduledExecutorService的实现，一个可定时调度任务的线程池
 * ThreadPoolExecutor：表示一个线程池，可以通过调用Executors的静态工厂方法来创建一个拥有特定功能的线程池并返回一个ExecutorService对象
 
-> 以上成员均在 java.util.concurrent包中, 是 JDK并发包的核心类。其中ThreadpoolExecutor表示一个线程池。 Executors类则扮演着线程池工厂的角色,通过 Executors可以取得一个拥特定功能的线程池。从 UML图中亦可知, ThreadPoolExecutor类实现了 Executor接口, 因此通过这个接口, 任何 Runnable的对象都可以被 ThreadPoolExecutor线程池调度。
+> 以上成员均在 `java.util.concurrent`包中, 是 `JDK`并发包的核心类。其中`ThreadpoolExecutor`表示一个线程池。 `Executors`类则扮演着线程池工厂的角色,通过 `Executors`可以取得一个拥特定功能的线程池。从 `UML`图中亦可知, `ThreadPoolExecutor`类实现了 `Executor`接口, 因此通过这个接口, 任何 `Runnable`的对象都可以被 `ThreadPoolExecutor`线程池调度。
 
 **Executor框架提供了各种类型的线程池, 主要有以下工厂方法: **
 
@@ -94,7 +94,7 @@
 
 ```
 
-使用 ThreadFactory 接口**
+**使用 ThreadFactory 接口**
 
 > 使用线程工厂就无需再手工编写对 new Thread 的调用了，从而允许应用程序使用特殊的线程子类、属性等等。
 
@@ -102,7 +102,7 @@
 
 **Callable、Future和FutureTask**
 
-> 我们知道创建线程的方式有两种，一种是实现Runnable接口，另一种是继承Thread，但是这两种方式都有个> 缺点，那就是在任务执行完成之后无法获取返回结果，那如果我们想要获取返回结果该如何实现呢？
+> 我们知道创建线程的方式有两种，一种是实现Runnable接口，另一种是继承Thread，但是这两种方式都有个 缺点，那就是在任务执行完成之后无法获取返回结果，那如果我们想要获取返回结果该如何实现呢？
 >
 > 于是就有了Callable  和 Future 接口
 
@@ -117,7 +117,7 @@ public interface Callable<V> {
 }
 ```
 
->  Callable需要和Executor框架中的ExcutorService结合使用，我们先看看ExecutorService提供的方法：
+>  `Callable`需要和`Executor`框架中的`ExcutorService`结合使用，我们先看看`ExecutorService`提供的方法：
 
 ```java
 // submit提交一个实现Callable接口的任务，并且返回封装了异步计算结果的Future。
@@ -159,7 +159,10 @@ public interface Future<V> {
 
 // boolean cancel(boolean mayInterruptIfRunning);
 如果任务还没开始，执行cancel(...)方法将返回false；如果任务已经启动，执行cancel(true)方法将以中断执行此任务线程的方式来试图停止任务，如果停止成功，返回true；当任务已经启动，执行cancel(false)方法将不会对正在执行的任务线程产生影响(让线程正常执行到完成)，此时返回false；当任务已经完成，执行cancel(...)方法将返回false。mayInterruptRunning参数表示是否中断执行中的线程。
-通过方法分析我们也知道实际上Future提供了3种功能：（1）能够中断执行中的任务（2）判断任务是否执行完成（3）获取任务执行完成后额结果。
+通过方法分析我们也知道实际上Future提供了3种功能：
+  （1）能够中断执行中的任务
+  （2）判断任务是否执行完成
+  （3）获取任务执行完成后额结果。
 但是我们必须明白Future只是一个接口，我们无法直接创建对象，因此就需要其实现类FutureTask登场啦。
 ```
 
@@ -174,7 +177,7 @@ public interface RunnableFuture<V> extends Runnable, Future<V> {
 }
 ```
 
-> 分析：FutureTask除了实现了Future接口外还实现了Runnable接口，因此FutureTask也可以直接提交给Executor执行。 当然也可以调用线程直接执行（FutureTask.run()）。接下来我们根据FutureTask.run()的执行时机来分析其所处的3种状态：
+> 分析：`FutureTask`除了实现了`Future`接口外还实现了`Runnable`接口，因此`FutureTask`也可以直接提交给`Executor`执行。 当然也可以调用线程直接执行（FutureTask.run()）。接下来我们根据FutureTask.run()的执行时机来分析其所处的3种状态：
 
 状态
 

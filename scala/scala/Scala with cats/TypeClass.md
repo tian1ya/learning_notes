@@ -379,5 +379,19 @@ println("123".show)
 * `import cats.syntax.all._ ` 导入所有 `syntax`
 * `import cats.implicits._` 导入所有标准的`type class instances`以及`syntax`
 
+---
+
+#### 查看一些博客对 Type class 的理解
+
+> `Type class` 和`Java` 中的 `interface` 概念接近，和`scala` 中的`trait` 概念接近
+>
+> `Type class` 的概念是来自于`haskell` 在 `haskell`中任何地方都可以实现对类的`type class` 但是在`Java` 中却是不行的，`Java` 中必须是实现某个接口才能让`class` 具有接口的意义。
+>
+> scala 借助`隐式转换` 使得可以完美支持`Type Class`
+>
+> #### 为什么需要Type class
+>
+> > 其将行为定义和具有行为的对象分离，更容易实现 `DuckType` 鸭子类型，函数式编程中，通常将数据与行为相分离。
+
 
 

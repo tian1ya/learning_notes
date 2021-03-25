@@ -44,29 +44,37 @@
   > 有Yarn-client 和 Yarn-cluster 2种模式，主要区别在于：
   >
   > * yarn-client： Driver 程序运行在客户端，适合于交互，调试，立马看到app 的输出
+  >
+  >   <img src="./pics/yarn_client.png" alt="a" style="zoom:50%;" />
+  >
+  >   1. 客户端提交一个Application， 在客户端启动一个Driver 进行
+  >   2. Driver 进行会向RS发送请求，启动AM，都在用户本地
+  >   3. RS 收到请求之后，随机选择一个NM 启动AM， 
+  >   4. AM 启动之后，会向RS 请求一批 container 资源，用于启动Executor
+  >   5. RS 会只要到一批NM 返回给AM
+  >   6. AM 向返回的NM 资源发送启动Executor 的命令
+  >   7. Executor 启动之后，会反向注册给Driver，Driver 将task 发送到这些Executor 
+  >
+  >   
+  >
   > * yarn-cluster： Driver 程序运行在由RM（ResourceManager） 启动的AM(ApplicationMater)上，适合生产环境
   >
   > <img src="./pics/yarn.png" alt="a" style="zoom:50%;" />
   >
   > 1. 客户端提供任务，到yarn
-  > 2. yarn 分配资源启动一个NodeManager，启动ApplicationManager，AM 启动Driver
-  > 3. 根据资源启动executor(executor 和 container 对应，container 就是对资源的抽象)
-  > 4. executor启动后，当前资源以及准备好，然后将任务发给该资源
-  > 5. 发送的过程中，任务的执行情况会反向发送回Driver
-  > 6. 任务执行结束后，释放资源
+  > 2. yarn 分配资源随机选择一个NM， 并在NM上启动ApplicationManager，AM 启动Driver
+  > 3. AM 启动之后，会向RS 请求一批 container 资源，用于启动Executor
+  > 4. RS 会只要到一批NM 返回给AM
+  > 5. AM 向返回的NM 资源发送启动Executor 的命令
+  > 6. Executor 启动之后，会反向注册给Driver，Driver 将task 发送到这些Executor 
 
-* RDD（Resilient Dristributed Dataset）
+* DAG：有向无环图
 
-  > Spark 中最基本的计算抽象，适合并行计算的最小计算单元，弹性的，不可变的，可分区的，里面的元素可并行计算的。
+  > Spark 的顶层调度层使用RDD 的依赖为每个Job 创建一个由stages 组成的DAG，在Spark API 张红，被称为是DAG 调度器(DAG Scheduler)。
   >
-  > **5个属性**
-  >
-  > * 多个分区，分区看做是数据及的基本组成单位
-  > * 每个分区执行的计算是完全相同的
-  > * 和其他RDD 之间的依赖关系(RDD 的血缘(依赖)系统，也是spark 容错的基础)
-  > * 对存储KV对的RDD(pair RDD)，还有一个可选的分区器Partitionner
+  > DAG 为每个Job 构建一个 stages 组成的图表，从而确定运行每个task 的位置，然后传递这些信息给TaskScheduler，TaskScheduler 负责在集群中允许任务
 
-* Shuffle、stage、Job
+* Shuffle、stage、Job、task
 
   > Shuffle 将任务一分为2，将Job 划分为 stage
   >
@@ -75,16 +83,6 @@
   > 每个Job 由多个stages 组成，这些stages 就是实现最终的RDD 所需的数据转换的步骤，一个宽依赖(Shuffle)划分一个stage。
   >
   > 每个stage 由多个tasks 来组成，这些tasks 就表示每个并行计算，并且会在多个执行器上执行。
-
-* DAG：有向无环图
-
-  > Spark 的顶层调度层使用RDD 的依赖为每个Job 创建一个由stages 组成的DAG，在Spark API 张红，被称为是DAG 调度器(DAG Scheduler)。
-  >
-  > DAG 为每个Job 构建一个 stages 组成的图表，从而确定运行每个task 的位置，然后传递这些信息给TaskScheduler，TaskScheduler 负责在集群中允许任务
-
-* 持久化
-
-  > 
 
 ---
 
@@ -103,7 +101,7 @@
   >
   > <img src="./pics/scheduler1.png" alt="a" style="zoom:50%;" />
   >
-  > 一个stage 是否被提交，需要判断它的父stage 是否执行，只有在父stage执行完毕才能提交当前stage，如果一个stage 没有父stage，那么该stage 开始提交，提交时候会将Task 信息序列化，并被打包成TaskSet交给TaskScheduler，一个P爱人提提欧尼对于一个Task，
+  > 一个stage 是否被提交，需要判断它的父stage 是否执行，只有在父stage执行完毕才能提交当前stage，如果一个stage 没有父stage，那么该stage 开始提交，提交时候会将Task 信息序列化，并被打包成TaskSet交给TaskScheduler
   >
   > DAGScheduler 做的事情比较简单，仅仅是在Stage 层面划分DAG，提交stage 并监控状态信息，TaskScheduler 则相对较为复杂。
   >

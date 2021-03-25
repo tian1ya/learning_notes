@@ -1,5 +1,17 @@
 [参考](https://www.jianshu.com/p/4d31d6cddc99)
 
+#### 三种语义
+
+* At most once: 最多一次， 数据有可能丢失
+* At least once: 至少一次：重复处理
+* Exactly once: 精确一次：恰好正确处理一次
+
+如果在整个Source-> transformation -> Sink 都实现 Exactly once， 那么就是End to End Exactly once
+
+三者的实现难度：At most once < At least once < Exactly once < End to End Exactly once
+
+Fink 正是能够做到 End to End Exactly once。
+
 #### 如何理解Flink 中的state
 
 * state泛指：flink 中有状态函数和运算符号在各个元素/事件的处理过程中存储的数据
@@ -27,18 +39,18 @@ checkpoint 是Flink 可靠性的基石，可以保证Flink 集群在某个算子
 ![jianshu1](./pics/jianshu1.png)
 
 1. CheckpointCoordinator 周期性的项流应用的所有source 算子发送barrier
-2. 当讴歌source 算子收到一个 barrier 时候，变暂停数据处理过程，然后将自己的当前状态制作为快照，并保存到指定的持久化存储中，最后想 CheckpointCoordinator 报告，自己快照制作完成，同时将自身所有下游算子广播该 barrier，恢复数据处理
-3. 下游算子收到 barrier 之后，会暂停自己的数据处理过程， 然后将自身的相关状态制作为快照，并保存到指定的持久化存储中，最后想 CheckpointCoordinator 报告自身快照情况，同时向自身下游算子广播 barrier，恢复数据处理
+2. 当source 算子收到一个 barrier 时候，便暂停数据处理过程，然后将自己的当前状态制作为快照，并保存到指定的持久化存储中，最后向 CheckpointCoordinator 报告，自己快照制作完成，同时将自身所有下游算子广播该 barrier，恢复数据处理
+3. 下游算子收到 barrier 之后，会暂停自己的数据处理过程， 然后将自身的相关状态制作为快照，并保存到指定的持久化存储中，最后向 CheckpointCoordinator 报告自身快照情况，同时向自身下游算子广播 barrier，恢复数据处理
 4. 每个算子安装步骤3，制作快照并向下游广播，知道最后 barrier 专递到 sink 算子，快照制作完成
-5. 当 CheckpointCoordinator 收到所有算子的报告之后，认为该周期的快照制作成功，斗则如果在规定的时间内没有收到所有算子的报告，则认为本周期快照制作失败
+5. 当 CheckpointCoordinator 收到所有算子的报告之后，认为该周期的快照制作成功，否则如果在规定的时间内没有收到所有算子的报告，则认为本周期快照制作失败
 
 #### Checkpoint 中保存的是什么信息
 
 几个问题：
 
-* Checkpoint 具体做了哪些功能，为什么任务挂掉之后，通过Checkpoint能是任务得到恢复
+* Checkpoint 具体做了哪些功能，为什么任务挂掉之后，通过Checkpoint能使得任务得到恢复
 * Checkpoint 是通过给程序快照的方式使得将历史某些时刻的状态保存下来，当任务挂掉之后，默认从最近一次保存的完整快照处进行恢复任务，那么快照是什么？
-* 快照里面保存的是什么信息 》？
+* 快照里面保存的是什么信息 ？
 
 ##### flink 消费 wordcount 数据为例
 

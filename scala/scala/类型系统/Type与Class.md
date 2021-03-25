@@ -1,6 +1,6 @@
 [原文](https://hongjiang.info/scala-type-and-class/)
 
-> 在Java里，一直到jdk1.5之前，我们说一个对象的类型(type)，都与它的`class`是一一映射的，通过获取它们的`class`对象，比如 `String.class`, `int.class`, `obj.getClass()` 等，就可以判断它们的类型(type)是不是一致的。
+> 在Java里，一直到jdk1.5之前，我们说一个对象的类型(`type`)，都与它的`class`是一一映射的，通过获取它们的`class`对象，比如 `String.class`, `int.class`, `obj.getClass()` 等，就可以判断它们的类型(`type`)是不是一致的。
 >
 > 而到了jdk1.5之后，因为引入了泛型的概念，类型系统变得复杂了，并且因为jvm选择了在运行时采用类型擦拭的做法(兼容性考虑)，类型已经不能单纯的用`class`来区分了，比如 `List<String>` 和 `List<Integer>` 的`class` 都是 `Class<List>`，然而两者类型(type)却是不同的。泛型类型的信息要通过反射的技巧来获取，同时java里增加了`Type`接口来表达更泛的类型，这样对于 `List<String>`这样由**类型构造器**和**类型参数**组成的类型，可以通过 `Type` 来描述；
 >
@@ -9,19 +9,18 @@
 > 
 > class A
 > 
-> typeOf[A]
-> 
-> res44: reflect.runtime.universe.Type = A
+> scala> typeOf[A]
+> res0: reflect.runtime.universe.Type = A
 > ```
->
-> 同样scala里获取类(Class)信息也很便捷，类似:
->
-> ```scala
-> classOf[A]
-> res52: Class[A] = class A
-> ```
->
 > 
+>同样scala里获取类(`Class`)信息也很便捷，类似:
+> 
+>```scala
+> scala> classOf[A]
+> res1: Class[A] = class A
+> ```
+> 
+>
 
 **Type**: 类型
 
@@ -31,9 +30,21 @@
 
 > 类更多存在于面向对象语言，非面向对象语言也有“结构体”等与之相似的概念；类是对数据的抽象，而类型则是对数据的”分类”，类型比类更“具体”，更“细”一些。
 
-类型(type)比类(class)更”具体”，任何数据都有类型。类是面向对象系统里对同一类数据的抽象，在没有泛型之前，类型系统不存在高阶概念，直接与类一一映射，而泛型出现之后，就不在一一映射了。比如定义`class List[T] {}`, 可以有`List[Int]` 和 `List[String]`等具体类型，它们的类是同一个`List`，但类型则根据不同的构造参数类型而不同。
+类型(`type`)比类(`class`)更”具体”，任何数据都有类型。类是面向对象系统里对同一类数据的抽象，在没有泛型之前，类型系统不存在高阶概念，直接与类一一映射，而泛型出现之后，就不在一一映射了。比如定义`class List[T] {}`, 可以有`List[Int]` 和 `List[String]`等具体类型，它们的类是同一个`List`，但类型则根据不同的构造参数类型而不同。
 
-类型一致的对象它们的类也是一致的，反过来，类一致的，其类型不一定一致。
+类型一致的对象它们的类也是一致的，
+
+```java
+scala> classOf[List[Int]] == classOf[List[String]]
+res2: Boolean = true
+```
+
+反过来，类一致的，其类型不一定一致。
+
+```java
+scala> typeOf[List[Int]] == typeOf[List[String]]
+res3: Boolean = false
+```
 
 ---
 
@@ -52,7 +63,7 @@ res0: Class[_ <: A] = class A
 scala> class
 classManifest   classOf
 
-scala> classOf[A]
+scala> classOf[A] // 得到是正确的 Class[A]
 res1: Class[A] = class A
 ```
 
@@ -281,7 +292,7 @@ res8: D = D@386d41cb
 [_ <: Test]
 ```
 
-在Java泛型里表示某个类型是Test类型的父类型，使用super关键字：
+在`Java`泛型里表示某个类型是`Test`类型的父类型，使用`super`关键字：
 
 ```java
 <T super Test>
@@ -357,9 +368,84 @@ Scala 的函数最多能有22个参数，函数也是一种类型，可以完成
 
 现在我们对上面泛型中的类型参数再进一步，也是个泛型会如何呢？
 
-![a](./pics/hkt2.png)
-
 可以看到，java中不支持类型参数也是泛型类型的情况，而scala支持。这是一个很重要的区别，scala在类型系统上要比java强大。我们现在简单对类型归纳一下，可以分为两类:
 
-**二阶泛型**
+> ```
+> 1）特定类型(proper type)
+>     比如 Int, String, List[Int], List2[List] 等类型
+> 
+> 2) 泛型类型：用于构造特定类型(proper type)的类型
+>     比如 List, List2 等类型
+> ```
+
+![a](./pics/hkt3.png)
+
+现在我们来看 **higher-kinded-type** ，先要理解 **kind** 是什么意思，如果说类型(type)是对数据的抽象，比如1,2,3等抽象为Int类型，”hello”,”wolrd”等可抽象为String类型。那么kind则是对类型的抽象。
+
+*熟知类型和类的区别，在本篇另外一个段中*
+
+![a](./pics/hkt4.png)
+
+**proper type 用 * 号表示：**
+
+![a](./pics/hkt5.png)
+
+泛型类型(用于构造proper type的类型)则可以用下面的方式表示，比如 Set[T], List[T].
+
+> ```
+> Set 和 List 都是通过传递一个特定类型(proper type)然后构造出一个特定类型(proper type)，用kind表示为：* -> *
+> ```
+>
+> 再如 Pair[K,V] 泛型类型
+>
+> ```
+> Pair 通过传递2个特定类型(proper type)然后构造出一个特定类型(proper type), 用kind表示为：
+> (*,*) -> *
+> ```
+
+![a](./pics/hkt6.png)
+
+如果泛型类型中的参数类型又是一个泛型，比如前边的 `List2`
+
+> ```
+> List2 通过传递一个泛型类型(类型构造器)，然后构造出一个特定类型，用kind表示为：
+> (*->*) -> *
+> ```
+
+![a](./pics/hkt7.png)
+
+这种类型参数也是泛型类型的类型，称之为高阶(higher)kind，是不是很像高阶函数？借用这张图做个汇总。
+
+![a](./pics/hkt8.png)
+
+```scala
+List    // type constructor, takes one parameter
+List[A] // type, produced using a type parameter
+
+// n Scala we declare type constructors using underscores. 
+// Declare F using underscores:
+def myMethod[F[_]] = {
+  // Reference F without underscores:
+  val functor = Functor.apply[F]
+  // ...
+}
+```
+
+在`scala` 中我们有这样的语法，在使用的时候，需要
+
+`import scala.language.higherKinds`
+
+---
+
+[复合类型与with 关键字](https://hongjiang.info/scala-type-system-compund-type/)
+
+```scala
+class A extends B with C with D with E 
+```
+
+应做类似如下形式解读：
+
+```scala
+class A extends (B with C with D with E)
+```
 

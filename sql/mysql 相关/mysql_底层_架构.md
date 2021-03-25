@@ -388,11 +388,11 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > ```sql
   > create table test02(
   > 	al char(3),
-  >   a2 char(3),
-  >   a3 char(3),
-  >   index index_al(al),
-  >   index index_a3(a3),
-  >   index index_a2(a2)
+  > a2 char(3),
+  > a3 char(3),
+  > index index_al(al),
+  > index index_a3(a3),
+  > index index_a2(a2)
   > );
   > 
   > explain select * from test02 where a1='' order by a2;
@@ -443,6 +443,7 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > +---------------------------------------+
   > | Using where; Using index; Using temporary; Using filesort |
   > +---------------------------------------+
+  > -- 当然上面的前提是 a3 不是 index
   > 
   > -- 避免出现这种情况，那就是查询什么，然后group by 什么
   > explain select al from test02 where al='' group by al;
@@ -473,7 +474,11 @@ id 不同的时候，**id 大的先执行**，这里course 表最先执行，然
   > ```sql
   > select a1 from test02
   > -- a1 是索引，这个时候就在索引中获取数据，不会去表里查数据
-  > ```
-
+> ```
+  >
+  > using where
+  >
+  > 
+  
   
 

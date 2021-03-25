@@ -139,7 +139,7 @@
 >
 > 4. Spring 容器在合适的时间创建Bean
 >
->    1. 用到这个bean 的时候，利用getBean 方法创建爱你，创建好之后保存到容器中
+>    1. 用到这个bean 的时候，利用getBean 方法创建，创建好之后保存到容器中
 >    2. 统一创建剩下所有bean 就是 finishBeanFactoryInitialization 完成的事情
 >
 > 5. **后置处理器**: 增强 Bean 功能

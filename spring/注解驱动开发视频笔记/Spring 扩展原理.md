@@ -2,7 +2,7 @@
 
 和它相关的还有一个 `BeanPostProcessor` 它的作用是bean 创建对象前后进行拦截工作的。
 
-`BeanFactoryPostProcessor` 是 `BeanFactory`的后置处理器，是在beanFactory 表中初始化之后，所谓标准初始化就是，所有的bean 配置都已经被保存加载到BeanFactory，但是还没有bean 没有被初始化
+`BeanFactoryPostProcessor` 是 `BeanFactory`的后置处理器，是在beanFactory 标准初始化之后，所谓标准初始化就是，所有的bean 配置都已经被保存加载到BeanFactory，但是还没有bean 没有被初始化
 
 ```java
 @Configuration
@@ -67,7 +67,7 @@ definitionCount: 9
 Blue constructor...
 ```
 
-MyBeanFactoryPostProcessor 打印的时机实在实例化bean 之前，所以它实在bean加载了，但是实例化之前。
+MyBeanFactoryPostProcessor 打印的时机是实例化bean 之前，所以它是在bean加载了，但是实例化之前。
 
 代码执行流程：
 

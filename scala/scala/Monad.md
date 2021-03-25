@@ -1,12 +1,8 @@
-cala里最显著困难是它的类型系统，当类型的抽象度变高之后(犹如从二维世界到三维世界)，它的含义和使用场景也会复杂很多。而monad正是基于高阶类型做的抽象。所以在了解monad前一定先要了解scala中高阶类型的概念，这块可以参考我blog中的scala类型系统系列。
+`scala`里最显著困难是它的类型系统，当类型的抽象度变高之后(犹如从二维世界到三维世界)，它的含义和使用场景也会复杂很多。而`monad`正是基于高阶类型做的抽象。所以在了解`monad`前一定先要了解`scala`中高阶类型的概念，这块可以参考我`blog`中的`scala`类型系统系列。
 
-通常monad也是一个标识，判断程序员对函数式世界的了解程度，它背后隐藏着很多的概念，并且很多来自数论(范畴领域)，对于非科班出身的我来说，总是心存敬畏而避而远之，但我们如果去掉这些理论描述，仅从程序的实现来看，还是比较容易的，只要把这些概念一点点分解开的话。
-
-
+通常`monad`也是一个标识，判断程序员对函数式世界的了解程度，它背后隐藏着很多的概念，并且很多来自数论(范畴领域)，对于非科班出身的我来说，总是心存敬畏而避而远之，但我们如果去掉这些理论描述，仅从程序的实现来看，还是比较容易的，只要把这些概念一点点分解开的话。
 
 > *Haskell由于使用了Monad这种较费解的概念来控制副作用而遭到了一些批评意见。Wadler试图平息这些质疑，他解释说：“一个单子（Monad）说白了不过就是自函子范畴上的一个幺半群而已，这有什么难以理解的？”*
-
-
 
 ##### 半群(semigroup)与幺半群(monoid)
 
@@ -19,11 +15,11 @@ google到数学里定义的群(group): G为非空集合，如果在G上定义的
 （4）逆元：对于任意a∈G，存在逆元a^-1，使得a^-1*a=a*a^-1=e
 ```
 
-则称（G，*）是群，简称G是群。
+则称`（G，*）`是群，简称`G`是群。
 
-如果仅满足封闭性和结合律，则称G是一个半群（Semigroup）；如果仅满足封闭性、结合律并且有幺元，则称G是一个含幺半群（Monoid）。
+如果仅满足**封闭性和结合律**，则称G是一个半群`（Semigroup）`；如果仅满足封闭性、结合律并且有幺元，则称G是一个含幺半群`（Monoid）`。
 
-相比公式还是用代码表达更容易理解，下面表示一个半群(semigroup):
+相比公式还是用代码表达更容易理解，下面表示一个半群`(semigroup)`:
 
 ```scala
 trait SemiGroup[T] {
@@ -81,6 +77,8 @@ def listMonoid[T] = {
 }
 ```
 
+通过上面的列子，看到`Monoid` 是在一阶类型(**特定类型(proper type)**)，属于一个集合(范畴)中的运算。
+
 OK,现在我们已经了解了幺半群是什么样了，但它有什么用？
 
 #### fold与monoid
@@ -122,13 +120,13 @@ scala> def acc[T](list: List[T], m: Monoid[T]) = {
 
 ##### 函子(functor)是什么
 
-> *一个单子（Monad）说白了不过就是自函子范畴上的一个幺半群而已 *
+> ***一个单子（Monad）说白了不过就是自函子范畴上的一个幺半群而已***
 
 **自函子(Endofunctor)**
 
 * 什么是函子(Functor)？
 
-> 乍一看名字，以为函子(functor)对函数(function)是一种封装，实际没有关系，尽管他们都是表示映射，但两者针对的目标不一样。
+> 乍一看名字，以为函子`(functor)`对函数`(function)`是一种封装，实际没有关系，尽管他们都是表示映射，但两者针对的目标不一样。
 >
 > 函数表达的映射关系在类型上体现在**特定类型(proper type)**之间的映射，举例来说
 >
@@ -143,25 +141,25 @@ scala> def acc[T](list: List[T], m: Monoid[T]) = {
 > scala> def baz[T](l:List[T]): Set[T] = l.toSet
 > ```
 >
-> 而函子，则是体现在**高阶类型(确切的说是范畴，可把范畴简单的看成高阶类型)**之间的映射(关于高阶类型参考: scala类型系统：24) 理解 higher-kinded-type，听上去还是不够直观，函子这个术语是来自群论(范畴论)里的概念，表示的是范畴之间的映射，那范畴又与类型之间是什么关系？
+> 而函子，则是体现在**高阶类型(higher-kind-list: 确切的说是范畴，可把范畴简单的看成高阶类型)**之间的映射(关于高阶类型参考: scala类型系统：24) 理解 higher-kinded-type，听上去还是不够直观，函子这个术语是来自群论(范畴论)里的概念，表示的是范畴之间的映射，那范畴又与类型之间是什么关系？
 >
 > #### 把范畴看做一组类型的集合
 >
-> > 这个集合是按照阶次的，如Int，String都是一阶类型，属于一个集合(范畴)中
+> > 这个集合是按照阶次的，如`Int`，`String`都是一阶类型，属于一个集合(范畴)中
 > >
-> > 而List[Int], List[String] 是一个二阶的类型，属于另外一个集合(范畴) 
+> > 而`List[Int]`, `List[String]` 是一个二阶的类型，属于另外一个集合(范畴) 
 >
-> 假设这里有两个范畴：范畴C1 里面有类型`String` 和类型 `Int`；范畴C2 里面有 `List[String]` 和 `List[Int]`
+> 假设这里有两个范畴：范畴`C1` 里面有类型`String` 和类型 `Int`；范畴`C2` 里面有 `List[String]` 和 `List[Int]`
 >
-> > higher-kinded-type 就是 这里 List 的泛型
+> > `higher-kinded-type` 就是这里 `List` 的泛型
 >
 >  ![a](./pics/hkt.png)
 >
 > 换句话说，如果一个范畴内部的所有元素可以映射为另一个范畴的元素，且元素间的关系也可以映射为另一个范畴元素间关系，则认为这两个范畴之间存在映射。所谓函子就是表示两个范畴的映射。
 >
-> #### 怎么用代码来描述函子？
+> #### 怎么用代码来描述函子
 >
-> 从上图的例子，我们已经清楚了functor的含义，即它包含两个层面的映射：
+> 从上图的例子，我们已经清楚了`functor`的含义，即它包含两个层面的映射：
 >
 > ```
 > 1) 将C1中的类型 T 映射为 C2 中的 List[T] :  T => List[T]
@@ -205,7 +203,7 @@ scala> def acc[T](list: List[T], m: Monoid[T]) = {
 > res9: My[String] = My(200ok)
 > ```
 >
-> 不过大多数库中对functor的支持，都不是通过`type class`模式来做的，而是直接在类型(这里暂时认为是带着一阶类型作为泛型的二阶类型)构造器的定义中实现了map方法：
+> 不过大多数库中对functor的支持，都不是通过`type class`模式来做的，而是直接在类型(这里暂时认为是带着一阶类型作为泛型的二阶类型)构造器的定义中实现了`map`方法：
 >
 > ```
 > scala> case class My[A](e:A) {
@@ -228,7 +226,7 @@ scala> def acc[T](list: List[T], m: Monoid[T]) = {
 
 ---
 
-[**自函子(Endofunctor)**](https://hongjiang.info/understand-monad-5-what-is-endofunctor/)
+* [**自函子(Endofunctor)**](https://hongjiang.info/understand-monad-5-what-is-endofunctor/)
 
 > *自函子就是一个将范畴映射到自身的函子 (A functor that maps a category to itself)*
 
@@ -244,13 +242,37 @@ scala> def acc[T](list: List[T], m: Monoid[T]) = {
 
 自函子映射的结果是自身，下图是一个简单的情况:
 
-> 是否就可以认为自函子就是一个函数，因为自函子经过映射之后其还是属于原来的范畴(在同一阶类型上的映射)，也就是说是在同一个范畴中进行的映射，也就可以理解为函数了，当然得明白这里的范畴是高阶的范畴（二阶泛数）
+> 是否就可以认为自函子就是一个函数，因为自函子经过映射之后其还是属于原来的范畴(在同一阶类型上的映射)，也就是说是在同一个范畴中进行的映射，也就可以理解为函数了，当然得明白这里的范畴是高阶的范畴
+>
+> 假设这个自函子为`F`，则对于 `F[Int]` 作用的结果仍是`Int`，对于函数`f: Int=>String` 映射的结果 `F[f]` 也仍是函数`f`，所以这个自函子实际是一个`Identity`函子(自函子的一种特例)，即对范畴中的元素和关系不做任何改变。
+>
+> 那怎么描述出一个非`Identity`的自函子(注意这里的自并不是说2经过一个运算之后还是2，而是List<T>经过运算之后还是List<T>/List<List<T>> 等，这里已经进入二阶范畴)呢？在介绍范畴在程序上的用法的资料里通常都用haskell来举例，把haskell里的所有类型和函数都放到一个范畴里，取名叫**Hask**，那么对于这个Hask的范畴，它看上去像是这样的：
+>
+> ![a](./pics/hkt1.png)
+>
+> 先来解释一下（画这个图的时候做了简化），`A`,`B`代表普通类型如`String`,`Int`,`Boolean`等，这些(有限的)普通类型是一组类型集合，还有一组类型集合是衍生类型(即由类型构造器与类型参数组成的)，这是一个无限集合(可以无限衍生下去)。这样`范畴Hask`就涵盖了haskell中所有的类型。
+>
+> 对于范畴Hask来说，如果有一个函子F，对里面的元素映射后，其结果仍属于Hask，比如我们用`List`这个函子：
+>
+> ```
+> List[A], List[List[A]], List[List[List[A]]]...
+> ```
+>
+> 发现这些映射的结果也是属于Hask范畴(子集)，所以这是一个自函子，实际上在Hask范畴上的所有函子都是自函子。
+>
+> 我们仔细观察这个`Hask`范畴的结构，发现它实际是一个**fractal**结构，所谓fractal(分形)，是个很神奇的结构，在自然界也大量存在：
+>
+> ![a](./pics/hkt2.png)
+>
+> 发现这些映射的结果也是属于Hask范畴(子集)，所以这是一个自函子，实际上在Hask范畴上的所有函子都是自函子。
+>
+> 我们仔细观察这个`Hask`范畴的结构，发现它实际是一个**fractal**结构，所谓fractal(分形)，是个很神奇的结构，在自然界也大量存在：
 
 ----
 
 #####  [从组合子(combinator)说起](https://hongjiang.info/understand-monad-6-combinator/)
 
-可以把combinator先当成一种“胶水”，更具体一些，把scala的集合库里提供的一些函数看成combinator:
+可以把combinator先当成一种“胶水”，更具体一些，把`scala`的集合库里提供的一些函数看成`combinator:`
 
 ```scala
 map
@@ -261,7 +283,7 @@ zip/partition
 flatten/flatMap
 ```
 
-而monad正是一个通用的combinator，也是一种设计模式，但它有很多面，就我后续的举例来说，先把monad看成一个“行为”的组合子。体现在代码上：
+而`monad`正是一个通用的`combinator`，也是一种设计模式，但它有很多面，就我后续的举例来说，先把`monad`看成一个“行为”的组合子。体现在代码上：
 
 ```scala
 class M[A](value: A) {  
@@ -357,3 +379,20 @@ monad.flatMap(unit) == monad
 
 [这里有很多的图片解释Monad](http://www.ruanyifeng.com/blog/2015/07/monad.html)
 
+---
+
+[这篇文章中Monad 的一些解释](https://blog.redelastic.com/a-guide-to-scala-collections-exploring-monads-in-scala-collections-ef810ef3aec3)
+
+Monads are containers. That means they contain some sort of elements. Instead of allowing us to operate on these elements directly, the container itself has certain properties. **We can then work with the container and the container works with the element within. This will help us to create more concise code; **
+
+When we create a monad around a value, we say that we *lift* the value into the container.
+
+**Benefits**
+
+Let’s take a step back and look at what the point of this is. Often we have complex tasks that have many steps, and this can result in very complex code. We might have callbacks, multiple functions that pass results back and forth,
+
+We often want to take a complex problem and break it down into manageable tasks, and then put those tasks back together to solve the problem. To do this, we need some kind of structure that will put this process “on rails” so that we’re reducing complexity by breaking down the problem, rather than increasing it by adding more and more independently moving parts. We need a kind of assembly line, where each part of the process can take care of its own business, and then pass the work to the next part. We want to break down our problem into a number of small functions, and then compose those functions together into one master function that represents the entire task.
+
+**Composing functions is the reason why we want to use monads and should care about monads.** 
+
+如使用`flatMap` 和 `unit` 可以组成各种各样的函数

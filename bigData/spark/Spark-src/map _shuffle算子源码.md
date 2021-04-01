@@ -630,7 +630,7 @@ def aggregateByKey[U: ClassTag](zeroValue: U, partitioner: Partitioner)(seqOp: (
 
 #### 总结
 
-* ####**map 基础算子**
+* #### **map 基础算子**
 
   * `map/filter/flatMap/mapPartitions/mapPartitionsWithIndex` 的底层都是 `MapPartitionsRDD`
   * `map/filter/flatMap` 三个算子都是调用了每个分区数据(`scala iterator`) 的相对应的方法，计算的时候每个分区域的每条数据依次压入

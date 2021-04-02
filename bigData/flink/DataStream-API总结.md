@@ -2,6 +2,92 @@
 
 >  Source -> Transformation -> Sink
 
+#### 操作概览
+
+![a](./pics/transform.png)
+
+操作算子是说将一个或者多个 DataStream 转换为一个新的DataStream
+
+![a](./pics/transform_1.png)
+
+**理解 keyedStream 是理解整个DataStreamAPI 的重中之重**
+
+#### 数据流向的物理分组
+
+![a](./pics/transform_2.png)
+
+* `global`
+
+![a](./pics/transform_21.png)
+
+相当于是强制将下游的算子的并行度设置为了1。
+
+* `boradcast`
+
+![a](./pics/transform_2_2.png)
+
+相当于就是将上游某个实例的数据发给下游的全部实例。使用的时候非常小心，相当于是将数据流复制n份(下游有n个实例)
+
+* `forward`
+
+上下游并行度一样的时候才可以使用。如果在编译期间上下游并行度不一样，那么就会报错。
+
+* `shuffle`
+
+做一个随机分配，每一个实例都知道自己的下游有几个实例，那么将一条数据随机选择下游的一个实例发过去，可以达到负载均衡的效果。
+
+* `reblance`
+
+和 shuffle 的作用差不多，不同的地方是`reblance` 是轮询的方式。
+
+* `rescale`
+
+和 `reblance`一样的做法，不同的是上面提到的 `reblace` 和 `rescale` 是会考虑所有的下游实例，如上面的例子中`A1 `  不止会考虑 `B1/B2` 还会考虑 `B3/B4/B5`
+
+而这里的`rescale` 只会考虑本地的下游实例，也就是`A1` 只会考虑`B1/B2` 去分发数据，而`A2` 只会考虑  `B3/B4/B5`
+
+* partitionCustome
+
+自定义数据路由的逻辑，根据选择下游分区的逻辑返回下游的一个分区，然后将数据分发到下游的一个分区。
+
+
+
+#### 类型系统
+
+`Flink` 是强类型的，这个它的序列化/反序列化相关的，作为一个框架，理解的数据的类型越多，那么这个框架一定意义上越高效。有时候甚至需要给出  `TypeInformation`
+
+```java
+OutputTag<Order> outputTag = new OutputTag<>("seriousList", TypeInformation.of(Order.class));
+```
+
+在使用`scala` 编程或者使用`java` 调 `scala` 的时候，需要`scala` 的隐士转换，完成类型推到。
+
+而在使用`Java` 写程序的时候，没有隐士转换，且`java` 运行期间类型擦除，那么就需要比较繁琐的给出类型
+
+```java
+SingleOutputStreamOperator<Tuple2<String, Integer>> word1Pair = words
+  .map((String value) -> Tuple2.of(value, 1))
+  .returns(Types.TUPLE(Types.STRING, Types.INT));
+```
+
+![a](./pics/transform_3.png)
+
+
+
+#### API 原理
+
+![a](./pics/transform_4.png)
+
+
+
+![a](./pics/transform_5.png)
+
+Function: 是真正执行逻辑的代码，也是我们写代码的时候关注的点。
+
+API 越抽象，**那么表达能力越低，但是一致性越强**，所谓一致性越强就是api 适应性越强，假如说你使用Table API 写了一个功能，如果你的flink 版本发生变化，那么在下一个版本中还可以工作能力越强。相反表达能力越若，因为其灵活性降低，很多底层Api processFunction 可以做的事情，这个时候它不一样能够做的到。
+
+而越底层的api，在版本发生变化的时候其变化的可能越大，到下一个版本中还可以使用的可行性就越低。
+
 ---
 
 #### Source
@@ -86,30 +172,8 @@ dataStream
 #### 合流和分流
 
 ```scala
-// 分流： 将传感器温度数据分为低温、高温两条流
-val splitDataStream = dataStream.split(data => {
-      if (data.temperature > 30) Seq("high") else Seq("low")
-    })
-
-// 将分开的流分别取出来
-val high = splitDataStream.select("high")
-val low = splitDataStream.select("low")
-val all = splitDataStream.select("low", "high")
-
-// 和流
-// 两个数据流被Connect之后，只是被放在了一个同一个流中，
-// 内部依然保持各自的数据和形式不发生任何变化，两个流相互独立。
-val warningStream = high.map(data => (data.id, data.temperature))
-val connectedStreams = warningStream.connect(low)
-// 这里传入的2个函数，是分别应用在合并前的2个流，这2个流connect 操作后还是相互独立的
-val value: DataStream[Product] = connectedStreams.map(
-  warningData => (warningData._1, warningData._2, "warning"),
-  lowTempData => (lowTempData.id, "healty")
-)
-
-//对两个或者两个以上的DataStream进行union操作，产生一个包含所有DataStream元素的新DataStream。
-val unionStream: DataStream[StartUpLog] = appStoreStream.union(otherStream)
-unionStream.print("union:::")
+// 查看代码中
+// java.transformations
 ```
 
 #### 使用类
@@ -130,7 +194,7 @@ class MyReduceFuntion extends ReduceFunction[SensorReading] {
 }
 ```
 
-> 相同的还有 ReduceFunction MapFunction
+> 相同的还有 `ReduceFunction MapFunction`
 
 #### 使用富函数
 
@@ -268,11 +332,10 @@ class MyRichMapper11 extends RichMapFunction[SensorReading, String] {
 状态分为2大类：
 
 * Managed State
+
 * Raw Satate
 
-![jianshu21](./InFoQFink一个系列文章/pics/jianshu21.png)
-
-Managed State 分为2中
+  Managed State 分为2中
 
 * Keyed State: 
 
@@ -281,8 +344,6 @@ Managed State 分为2中
 * Operator State
 
   > Operator State 可以用于所有算子，通过RuntimeContext 访问，这需要 Operator 是一个 Rich Function。Operator  State 需要自己实现 CheckpointedFunction 或 ListCheckpointed 接口
-
-![jianshu21](./InFoQFink一个系列文章/pics/jianshu22.png)
 
 ---
 
@@ -367,7 +428,58 @@ dataStream
 
 #### 窗口中的API
 
-> 定义好窗口知乎，就需要对每个窗口中中的数据进行逻辑计算，Window Function 有4中
+* 窗口的生命周期
+
+> **窗口创建**：当属于这个窗口的第一条数据到来的时候，就窗口该窗口。
+>
+> **窗口移除**：当该窗口所属的时间全部已经走完，并且设置的允许延迟时间也过去了，那么这个窗口就会被移除
+>
+> 窗口的移除只限于那些基于时间的窗口，如`global window` 是不会被移除的。
+>
+> 每一个窗口都有一个 `triggers` 函数，它包括应用在这个窗口数据中的计算方法，以及什么时候出发这个计算的`triggering policy`,以及决定何时消除窗口中的内容。
+>
+> 每一个窗口也有一个 `Evictor` 负责决定在函数应用在窗口中的元素之前或者之后移除窗口中的元素
+>
+> 窗口的什么周期主要有4部分
+>
+> * 窗口建立
+> * 窗口收集够了数据出发计算
+> * 窗口移除数据
+> * 窗口移除
+
+* keyed 以及 Non-keyed Window
+
+> 在调用窗口函数之前，如果使用了`keyed` 算子，那么后续的窗口就变为了`keyedWindow` 否则就是`non-keyed window`
+>
+> 使用了`keyed` 算子的好处是将Stream 并行化，一个keyedStream 分配到了一个 task，这些task 之间是可以并行化运行的。
+>
+> 没有使用了`keyed` 算子，那么Stream 只会在一个task中计算，并行度是1。
+>
+> 使用了`keyed` 算子那么使用`API window `
+>
+> 没有使用了`keyed` 算子，那么使用`api windowAll`
+
+* Window Assigners
+
+> 使用了`keyed` 算子那么使用`API window `
+>
+> 没有使用了`keyed` 算子，那么使用`api windowAll`
+>
+> 也可以自己定义窗口，实现接口`WindowAssigner`
+
+* 四类窗口
+
+> *tumbling windows*: 
+>
+> *sliding windows* 
+>
+> *session windows* 
+>
+>  *global windows*
+>
+> 基于时间的窗口期时间的范围左闭右开的。`*start timestamp* (inclusive) and an *end timestamp* (exclusive) t`
+
+> 定义好窗口，就需要对每个窗口中中的数据进行逻辑计算，Window Function 有4中
 >
 > * ReduceFunction: 完成增量聚合，**获取不上窗口的上下文信息**
 > * AggregationFunction: 完成增量聚合，**获取不上窗口的上下文信息**
@@ -407,7 +519,7 @@ dataStream.map(data => (data.id, 1))
   >
   > AggregateFunction 需要实现 merge 函数，实现聚合操作，从上面的类型来看
   >
-  > AggregateFunction 是比 ReduceFunction 更加的一遍，输入，输出，聚合类型都可以不一样
+  > AggregateFunction 是比 ReduceFunction 更加的一般化，输入，输出，聚合类型都可以不一样
 
 ```scala
 class countTemperatureAggregation extends AggregateFunction[(String,Long), (String, Long), (String, Long)] {

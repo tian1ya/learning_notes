@@ -47,6 +47,22 @@ Flink 中的时间，相对于数据库表中的主键
 
 #### TimeStamp 和 watermark 的产生
 
+* wm 是一条特殊的数据记录
+* 必须单调递增，确保任务的事件时间向前推进，而不是在后退
+* wm 和数据的时间戳相关
+
+窗口的关闭时由wm 触发的。
+
+![a](./pics/wm.png)
+
+所以如图当wm5到来的时候，就会将假如说[1, 5) 这个窗口关闭。如图当事件时间等于5的时候，这个时候wm 就更新成了5，所以会关闭。
+
+还可以设置wm 的延迟用于等待迟到/乱序的数据，假如说设置了延迟3秒，那么只有当事件时间到了8的时候，这个时候wm=8，那么[1,5) 这个窗口才会关闭。
+
+![a](./pics/wm1.png)
+
+如这里，窗口为[1,5) 我设置了延迟2s，那么数据5之后事件时间到了8的时候我的这个窗口才关闭，也就是迟到的数据2和3还都是可以落到[1,5) 这个窗口中的，数据不会丢失。
+
 在代码中设置
 
 ```scala
@@ -71,9 +87,92 @@ Flink 中也有非常好的机制保证时间以及wm 被正确的传递到下�
 * 单输出取其大，多输入取其小
 * Long.MAX_VALUE 表示不会再有数据
 
-![a](./pic/time6.png)
+![a](./pics/wm2.png)
+
+
 
 局限性的理解：当时一个输入源的时候，要求经过一些分布式的计算之后到达某一个节点的wm一致，那是很合理的，但是对于多个输入源，当做聚合操作(如：join操作)的时候，还要求wm一致，那就不是很合理了，如一个数据源比较早，另外一个数据源很晚。
+
+
+
+#### 窗口的起始点和截止点的计算源码
+
+代码位置 `org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows#assignWindows`
+
+```java
+// 创建的时候是这样的
+public static TumblingEventTimeWindows of(Time size) {
+  return new TumblingEventTimeWindows(size.toMilliseconds(), 0, WindowStagger.ALIGNED);
+}
+
+// 然后会在某个地方调用
+public Collection<TimeWindow> assignWindows(Object element, long timestamp, WindowAssignerContext context) {
+  if (timestamp > Long.MIN_VALUE) {
+    if (staggerOffset == null) {
+      staggerOffset = windowStagger.getStaggerOffset(context.getCurrentProcessingTime(), size);
+    }
+    // 这里计算起始点
+    // globalOffset 默认会是 0
+    // 那么它的作用是什么呢， timestamp 使用的是格林威治时间，和北京时间会差个8小时
+    // 如果在北京时区中使用标准的时候，那么在一开始使用 of 方法创建的时候需要给 offset 这个 -8h 的微秒值
+    // 详细可以看源代码中的注释。
+    long start = TimeWindow.getWindowStartWithOffset(timestamp, (globalOffset + staggerOffset) % size, size);
+    return Collections.singletonList(new TimeWindow(start, start + size));
+  } else {
+    throw new RuntimeException("Record has Long.MIN_VALUE timestamp (= no timestamp marker). " +
+                               "Is the time characteristic set to 'ProcessingTime', or did you forget to call " 
+                               + "'DataStream.assignTimestampsAndWatermarks(...)'?");
+  }
+}
+
+/**
+  Method to get the window start for a timestamp.
+  Params:
+  	timestamp – epoch millisecond to get the window start.
+  	offset – The offset which window start would be shifted by.
+  	windowSize – The size of the generated windows.
+  Returns:
+  	window star
+**/
+public static long getWindowStartWithOffset(long timestamp, long offset, long windowSize) {
+  // timestamp 当前时间戳
+  return timestamp - (timestamp - offset + windowSize) % windowSize;
+}
+
+/*
+	在刚开始的时候 可以认为 offset=0
+	timestamp - (timestamp - 0 + windowSize) % windowSize;
+	= timestamp - (timestamp + windowSize) % windowSize;
+	= timestamp - (timestamp) % windowSize;
+	timestamp 将 余数全部都减掉了，剩下的就是 windowSize 的整数倍
+	也就是假如是 windowSize=5 是当前的，那么当前的起始点肯定是 5的整数倍
+	因为 timestamp 肯定是大于 5 的。
+	假如说当前的 timestamp=1617462222，那么经过这里的计算，返回的结果就是 1617462220
+	
+	返回的结果到方法 assignWindows 中，那么就计算出第一个窗口 [1617462220,1617462225)
+*/
+```
+
+#### 解决迟到数据
+
+如果在窗口关闭的时候，数据还没有到，那么这个数据就会永久丢失了，为了解决这个问题可以使用下面的接口
+
+```java
+.allowedLateness(Time.seconds(3)).sideOutputLateData(outputTag)
+```
+
+因为窗口的计算已经结束，窗口已经关闭了，所以迟到的数据是不能再正常参与到计算中了，
+
+但是可以将数据输出到侧输出流中，然后后续再取出来
+
+```java
+DataStream<Order> sideOutput = apply.getSideOutput(outputTag).map(order -> {
+  order.setEventTimeStr(df.format(order.eventTime));
+  return order;
+});
+```
+
+然后进而做进一步的计算。
 
 ---
 

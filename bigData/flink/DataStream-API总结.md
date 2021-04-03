@@ -230,37 +230,58 @@ class MyRichMapper extends RichMapFunction[SensorReading, String] {
 ##### 使用本身带有状态的算子
 
 ```scala
-dataStream
-      .keyBy(_.id)
-      //      .flatMap(new TempChangeAlert(10.0))// 无状态的 flateMap
-      .flatMapWithState[(String, Double, Double), Double]({ // 有状态的 flatMap 必须是在 keyBy 之后调用
-        case (data: SensorReading, None) => (List.empty, Some(data.temperature))
-        case (data: SensorReading, lastTemp: Some[Double]) => {
-          val lastTempValue = lastTemp.get
+public class maxValueFromKeyedState {
+  public static void main(String[] args) throws Exception {
+    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.setRuntimeMode(RuntimeExecutionMode.AUTOMATIC);
 
-          val diff = (data.temperature - lastTempValue).abs
+    DataStreamSource<Tuple2<String, Long>> tDs = env.fromElements(
+      Tuple2.of("北京", 1L),
+      Tuple2.of("北京1", 2L),
+      Tuple2.of("北京1", 1L),
+      Tuple2.of("北京", 3L),
+      Tuple2.of("北京", 5L),
+      Tuple2.of("北京1", 7L)
+    );
 
-          if (diff > 10.0)
-            (List((data.id, data.temperature, data.temperature)), Some(data.temperature))
-          else
-            (List.empty, Some(data.temperature))
-        }})
+    // 找对大值
+    tDs
+    .keyBy(t -> t.f0)
+    .maxBy(1)
+    .print("maxBy");
 
+    tDs
+    .keyBy(t -> t.f0)
+    .map(new RichMapFunction<Tuple2<String, Long>, Tuple3<String, Long, Long>>() {
 
-    dataStream
-      .keyBy(_.id)
-      .mapWithState[SensorReading, Double]({
-        case (data:SensorReading, None) => ((SensorReading(data.id, 0L, 0.0)), Some(data.temperature))
-        case (data:SensorReading, state:Some[Double]) => {
-          val lastValue = state.get
-          val currentValue = data.temperature
-          if ((currentValue-lastValue).abs > 10.0)
-            (data, Some(data.temperature))
-            else
-            (SensorReading(data.id, 0L, 0.0), Some(0.0))
+      private ValueState<Long> maxValueState;
+
+      @Override
+      public void open(Configuration parameters) throws Exception {
+        ValueStateDescriptor<Long> stateDesc = new ValueStateDescriptor<>("maxValueState", Long.class);
+
+        RuntimeContext runtimeContext = getRuntimeContext();
+
+        maxValueState = runtimeContext.getState(stateDesc);
+      }
+
+      @Override
+      public Tuple3<String, Long, Long> map(Tuple2<String, Long> value) throws Exception {
+        Long maxValue = maxValueState.value();
+        if (maxValue == null || value.f1 > maxValue) {
+          maxValue = value.f1;
         }
-      })
+        maxValueState.update(maxValue);
+
+        return Tuple3.of(value.f0, value.f1, maxValue);
+      }
+    }).print("keyed State");
+
+    // value 实现最大值
+
+    env.execute();
   }
+}
 ```
 
 ##### 自定义使用算子
@@ -270,8 +291,11 @@ class TempChangeAlert(threadHold: Double) extends RichFlatMapFunction[SensorRead
 
   /*
     定义状态，保存上一次的温度值
-    这里可以使用 lazy 的方式创建状态，也可以在先定义一个类型然后 open 的周期方法中初始化，这个时候环境上下文getRuntimeContext以及可以获取到
-    因为使用 lazy 创建的时候并没有立即初始化，而是在 flatMap 方法中使用，这个时候环境上下文getRuntimeContext以及可以获取到
+    这里可以使用 lazy 的方式创建状态，也可以在先定义一个类型然后 open 的周期方法中初始化，
+    这个时候环境上下文getRuntimeContext以及可以获取到
+    
+    因为使用 lazy 创建的时候并没有立即初始化，而是在 flatMap 方法中使用，
+    这个时候环境上下文getRuntimeContext以及可以获取到
     
     getRuntimeContext 是在执行完构造函数后才可以获取到的
    */
@@ -295,7 +319,8 @@ class MyRichMapper11 extends RichMapFunction[SensorReading, String] {
 
 
   /*
-    getRuntimeContext:必须是在类的生命周期过程中调用，而不能在构造函数中调用，这样是获取不到 getRuntimeContext的
+    getRuntimeContext:必须是在类的生命周期过程中调用，而不能在构造函数中调用，
+    这样是获取不到 getRuntimeContext的
     应该将其放 到 open 生命周期中
    */
 
@@ -352,7 +377,7 @@ class MyRichMapper11 extends RichMapFunction[SensorReading, String] {
 > 是最底层的流处理操作，允许访问所有流应用程序的基本构件:
 >
 > * event：数据流中的元素
-> * state: 状态，用于仍错和一致性，仅仅用于 keyed stream
+> * state: 状态，用于容错和一致性，仅仅用于 keyed stream
 > * timers: 定时器，支持时间时间和处理时间，用于keyed stream
 
 Flink 提供了8 个 ProcessFunction
@@ -362,7 +387,7 @@ Flink 提供了8 个 ProcessFunction
 - CoProcessFunction：用于connect连接的流
 - ProcessJoinFunction：用于join流操作
 - BroadcastProcessFunction：用于广播
-- KeyedBroadcastProcessFunction：keyBy之后的广播
+- KeyedBroadcastProcessFunction：keyBy 之后的广播
 - ProcessWindowFunction：窗口增量聚合
 - ProcessAllWindowFunction：全窗口聚合
 
@@ -428,6 +453,24 @@ dataStream
 
 #### 窗口中的API
 
+在spark DataFrame 中或者SQL 中的开窗函数都是这样的
+
+![a](./pics/window.png)
+
+数据是已经有了的，然后在这个数据的基础之上，施加一个一个的窗口，然后在这个窗口进行计算，输出一个结果
+
+而 flink 中的窗口是这样的。flink 中的数据是无界的，而窗口的提出主要是解决无界流的问题，如在源源不断来的数据(无界流)中需要计算在过去一段时间的统计结果，那么是对时间有一个限制的，处理的数据也是过去一段时间内的数据，是一个有界的数据，是截取了一部分数据。在Flink 中的创建就是就是讲无限流切割为一种有限流的方式，它将流数据分发到有限大小的桶bucket 中进行分析。
+
+**这个有界流中的窗口是不一样的，有界流中的窗口是现有数据后有框，而无界流中的是现有框，然后才有数据。**
+
+![a](./pics/window_1.png)
+
+这里就发现，如果出现一个迟到的数据，那么使用先数据，后窗口方式解决不了数据乱序问题，当然你可以对数据进行一个排序，但是需要知道分布式下的数据排序是一个shuffle(想想spark 中的 sortByKey 操作)
+
+![a](./pics/window_2.png)
+
+而在flink 中是先有窗口，后来数据，会有一定的机制去处理延迟/乱序的数据
+
 * 窗口的生命周期
 
 > **窗口创建**：当属于这个窗口的第一条数据到来的时候，就窗口该窗口。
@@ -469,13 +512,23 @@ dataStream
 
 * 四类窗口
 
-> *tumbling windows*: 
+> * 时间窗口
 >
-> *sliding windows* 
+>   *tumbling windows*:  滚动窗口（一个跟斗翻了过去)时间对其，窗口长度固定，头连尾，尾连头，没有重叠，所以定好了起始点，所有窗口就都出来了。(滚动窗口可以看做是滑动窗口的一个特殊，就是滚动大小等于窗口长度的滑动窗口)，**只有一个窗口参数，那就是窗口长度**
 >
-> *session windows* 
+>   *sliding windows* ：滑动窗口，起始点窗口长度固定，下一个窗口在保持窗口长度，在第一个窗口的起始时间往后滑动一定时间。**有重叠，一个数据，会存在在多个窗口中**。会有2个窗口参数，窗口长度和滑动步长。
 >
->  *global windows*
+>   *session windows* : 一段时间没有收到新数据就会生成一个新的数据，如打电话，当说完一些话之后，双方就不在说话，说明话说完了，然后将电话挂了，等下次再有话讲，那么在打一通电话。
+>
+>   该参数只有一个 `session gap` timeout 参数。时间无对其。
+>
+>    *global windows*
+>
+> * 计数窗口
+>
+>   *tumbling windows*: 
+>
+>   *sliding windows* 
 >
 > 基于时间的窗口期时间的范围左闭右开的。`*start timestamp* (inclusive) and an *end timestamp* (exclusive) t`
 
@@ -487,97 +540,305 @@ dataStream
 > * ProcessWindowFunction: 提供一个Iterasble 迭代器，可以获得一个窗口的所有元素以及元素的元数据信息，它的执行效率不是很好，因为需要缓存窗口中的所有元素，**但是它可以获取到窗口的上下文信息**
 >
 > 可以将增量聚合和缓存窗口内所有数据进行结合使用
+>
+> 使用窗口的场景一般场景就是
+>
+> ```java
+> .keyby
+> .window
+> .aggregate
+> ```
+>
+> 而在聚合的时候也分为2中聚合的方式
+>
+> * 增量聚合：`ReduceFunction/aggregateFunction`
+>
+> * 全窗口函数：先将全部的数据收集起来，等到计算的时候回遍历所有数据，然后得到结果
+>
+>   `ProcessWindowFunction/WindowFunction`,如在排序，统计中位数，20%的哪个数据等需要使用这个方式，将数据先收集起来，然后统计。还有全窗口函数还可以获取当前窗口的上下文以及窗口的信息。全窗口函数会更加使用场景多
+>
+> * 当然二者也可以混合起来使用
 
 * ReduceFunction
 
-  > 需要传入一个聚合函数
-  >
-  > ```scala
-  > reduce(function: (T, T) => T)
-  > ```
-  >
-  > 函数要求输入和输出的类型一样
+> 需要传入一个聚合函数
+>
+> ```scala
+> reduce(function: (T, T) => T)
+> ```
+>
+> 函数要求输入和输出的类型一样
 
 ```scala
-dataStream.map(data => (data.id, 1))
-.keyBy(_._1)
-.timeWindow(Time.seconds(5), Time.seconds(3))
-.reduce((curRes, newData) => (curRes._1, curRes._2 + newData._2))
+SingleOutputStreamOperator<SensorReading> dataStream = source.map(line -> {
+  String[] split = line.split(",");
+  return new SensorReading(split[0], new Long(split[1]), new Double(split[2]));
+});
+
+dataStream
+.keyBy(sensorReading -> sensorReading.id)
+.window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+//.countWindow(10,2)
+.reduce((a,b) -> {
+  a.temperature = Math.max(a.temperature, b.temperature);
+  return a;
+}).print("a");
+
+env.execute();
 ```
 
 * AggregationFunction
 
-  > 需要传入一个 AggregateFunction 的函数类
+> 需要传入一个 AggregateFunction 的函数类
 
-  > ```scala
-  > aggregate(aggregateFunction: AggregateFunction[T, ACC, R])
-  > 
-  > public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable {
-  >   ACC merge(ACC a, ACC b);
-  > }
-  > ```
-  >
-  > AggregateFunction 需要实现 merge 函数，实现聚合操作，从上面的类型来看
-  >
-  > AggregateFunction 是比 ReduceFunction 更加的一般化，输入，输出，聚合类型都可以不一样
+> ```scala
+> // 这个函数只接受一个函数，做增量聚合操作
+> public <ACC, R> SingleOutputStreamOperator<R> aggregate(AggregateFunction<T, ACC, R> function)
+> public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable
+> 
+> public static class MyAggregationFunction implements AggregateFunction<SensorReading, Tuple2<Double, Integer>, Double> {
+> 
+>   @Override
+>   public Tuple2<Double, Integer> createAccumulator() {
+>     return new Tuple2<>(0.0, 0);
+>   }
+> 
+>   @Override
+>   public Tuple2<Double, Integer> add(SensorReading value, Tuple2<Double, Integer> accumulator) {
+>     return new Tuple2<>(accumulator.f0 + value.temperature, accumulator.f1 + 1);
+>   }
+> 
+>   @Override
+>   public Double getResult(Tuple2<Double, Integer> accumulator) {
+>     return accumulator.f0 / accumulator.f1;
+>   }
+> 
+>   @Override
+>   public Tuple2<Double, Integer> merge(Tuple2<Double, Integer> a, Tuple2<Double, Integer> b) {
+>     return new Tuple2<>(a.f0 + b.f0,a.f1 + b.f1);
+>   }
+> }
+> 
+> dataStream
+>   .keyBy(sensorReading -> sensorReading.id)
+>   .window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+>   .aggregate(new MyAggregationFunction())
+>   .print("a");
+> ```
+>
 
 ```scala
-class countTemperatureAggregation extends AggregateFunction[(String,Long), (String, Long), (String, Long)] {
-  // 初始化聚合结果
-  override def createAccumulator(): (String, Long) = ("", 0L)
-  // 分区内的聚合结果和新数据的计算
-  override def add(value: (String, Long), accumulator: (String, Long)): (String, Long) = (value._1, accumulator._2 + value._2)
-  // 分区间聚合结果计算
-  override def getResult(accumulator: (String, Long)): (String, Long) = accumulator
+dataStream
+.keyBy(sensorReading -> sensorReading.id)
+.window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+.aggregate(new AggregateFunction<SensorReading, Integer, Integer>() {
+  @Override
+  public Integer createAccumulator() {
+    // 累加的初始值
+    return 0;
+  }
 
-  override def merge(a: (String, Long), b: (String, Long)): (String, Long) = (a._1, a._2 + b._2)
-}
+  @Override
+  public Integer add(SensorReading value, Integer accumulator) {
+    // 累加，这里累加个数，所以就 +1
+    return accumulator + 1;
+  }
 
+  @Override
+  public Integer getResult(Integer accumulator) {
+    return accumulator;
+  }
 
-dataStream.map(data => (data.id, 1L))
-      .keyBy(_._1)
-      .timeWindow(Time.seconds(5), Time.seconds(3))
-      .aggregate(new countTemperatureAggregation)
-      .print("aggeragate count")
+  @Override
+  public Integer merge(Integer a, Integer b) {
+    // Merges two accumulators, returning an accumulator with the merged state.
+    return a + b;
+  }
+}).print("res");
 ```
 
-* ProcessWindowFunction
+* 全窗口函数 `WindowFunction`
+
+> ```java
+> dataStream
+>   .keyBy(sensorReading -> sensorReading.id)
+>   .window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+>   .apply(WindowFunction 函数)
+>  
+> // 这里的参数 w 他是一个 window
+> public interface WindowFunction<IN, OUT, KEY, W extends Window> extends Function, Serializable 
+>   
+> 
+> // 虽然低效率，但是可以做的事情多了起来。
+> dataStream
+>   .keyBy(sensorReading -> sensorReading.id)
+>   .window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+>   .apply(new WindowFunction<SensorReading, Tuple3<String, Integer, Long>, 
+>          	String, TimeWindow>() {
+>             
+>     @Override
+>     public void apply(String key, TimeWindow window, 
+>                       Iterable<SensorReading> input, 
+>                       Collector<Tuple3<String, Integer, Long>> out) throws Exception {
+>       
+>       out.collect(Tuple3.of(key, IteratorUtils.toList(input.iterator()).size(), 
+>                             window.getEnd()));
+>     }
+>   }).print("a");
+> 
+> env.execute(); 
+> ```
+
+* 全窗口函数 `ProcessWindowFunction`
 
 ```scala
-class countTemperatureProcessWindowFunction extends ProcessWindowFunction[(String, Long), (String, Long), String, TimeWindow] {
-  override def process(key: String, context: Context, elements: Iterable[(String, Long)], out: Collector[(String, Long)]): Unit = {
-    // elements 缓存下了窗口中的所有元素
-    println("当前分组的 key: " + key)
-    println("当前窗口内元素： " + elements.size)
-    val window = context.window
-    println("当前窗口：" + window.getStart + " -> " + window.getEnd)
+public abstract class ProcessWindowFunction<IN, OUT, KEY, W extends Window> extends AbstractRichFunction
 
-    out.collect((elements.head._1, elements.map(_._2).sum))
+// 这里和全窗口不同点
+// 1. 主要是实现一个 process 函数
+// 2. 使用 process 调用计算
+// 3. ProcessWindowFunction 还给了一个 context，窗口需要在这里获取
+dataStream
+.keyBy(sensorReading -> sensorReading.id)
+.window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
+.process(new ProcessWindowFunction<SensorReading, Tuple3<String, Integer, Long>, String, TimeWindow>() {
+
+  @Override
+  public void process(String key, Context context, Iterable<SensorReading> elements, Collector<Tuple3<String, Integer, Long>> out) throws Exception {
+    out.collect(Tuple3.of(key, IteratorUtils.toList(elements.iterator()).size(),
+                          context.window().getEnd()));
+  }
+}).print("a");
+```
+
+* `ProcessWindowFunction`和 `AggeragationFunction/ReduceFunction` 混合使用
+
+```scala
+SingleOutputStreamOperator<CategoryPoJo> aggregateByEachCategory = ds
+.keyBy(t -> t.f0)
+// 注意查看注释中的信息， offset 的使用
+// 这个窗口，从当前00:00:00 开始，计算当前的数据，
+.window(TumblingProcessingTimeWindows.of(Time.days(1), Time.hours(-8)))
+// 每隔 1s 触发一下窗口
+.trigger(ContinuousProcessingTimeTrigger.of(Time.seconds(1)))
+// aggregate 自定义聚合， 这里有2类使用
+// 1. 单纯自定义 聚合函数，得到聚合结果 传入 aggregateFunction
+//   aggregate(AggregateFunction<T, ACC, R> function)
+// 2. 除了聚合结果，还可以收集窗口中的数据， 再传入 windowFunction， 有窗口 context 信息
+// SingleOutputStreamOperator<R> aggregate(
+//		AggregateFunction<T, ACC, V> aggFunction,
+//		WindowFunction<V, R, K, W> windowFunction)
+//  这种方法中  WindowFunction 中的IN 是 AggregateFunction 的 OUT
+.aggregate(new PrinceAggerate(), new WindowResult());
+
+private static class PrinceAggerate implements AggregateFunction<Tuple2<String, Double>, Double, Double> {
+        @Override
+        public Double createAccumulator() {
+            return 0.0;
+        }
+
+        @Override
+        public Double add(Tuple2<String, Double> value, Double accumulator) {
+            return value.f1 + accumulator;
+        }
+
+        @Override
+        public Double getResult(Double accumulator) {
+            return accumulator;
+        }
+
+        @Override
+        public Double merge(Double a, Double b) {
+            return a + b;
+        }
+    }
+
+private static class WindowResult implements WindowFunction<Double, CategoryPoJo, 
+String, TimeWindow> {
+  
+  private FastDateFormat df = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss");
+
+  @Override
+  public void apply(String key, TimeWindow window, Iterable<Double> input, 
+                    Collector<CategoryPoJo> out) throws Exception {
+    
+    Iterator<Double> iterator = input.iterator();
+    double aggegrateResult = iterator.hasNext() ? iterator.next() : 0.0;
+    String dateStr = df.format(System.currentTimeMillis());
+    out.collect(new CategoryPoJo(key, aggegrateResult, dateStr));
   }
 }
-
-
-dataStream.map(data => (data.id, 1L))
-.keyBy(_._1)
-.timeWindow(Time.seconds(5), Time.seconds(3))
-.process(new countTemperatureProcessWindowFunction)
-```
-
-* ProcessWindowFunction 和 AggeragationFunction/ReduceFunction 混合使用
-
-```scala
-dataStream.map(data => (data.id, 1L))
-.keyBy(_._1)
-.timeWindow(Time.seconds(5), Time.seconds(3))
-.aggregate(new countTemperatureAggregation, new countTemperatureProcessWindowFunction)
-
-// countTemperatureAggregation 和 countTemperatureProcessWindowFunction
-// 都在上面的代码中有贴出来
 ```
 
 在这里先经过一个聚合函数进行聚合，这样一个窗口中输出的数据就只有一个了，
 
 然后这个时候将这一个结果在输出到 `ProcessWindowFunction` 函数中，然后就可以获取到窗口的上下文了
+
+
+
+#### 其他的窗口关于的API
+
+* `.trigger`
+
+  定义 window 什么时候关闭，并出发计算输出结果
+
+* `.evictor`
+
+  定义移除某些数据的逻辑
+
+* `.allowedLateness`
+
+  允许处理迟到的数据
+
+* `.sideOutputData`
+
+  将迟到的数据放到测输出流
+
+* `.getSideOutPut`
+
+  获取测输出流
+
+```java
+OutputTag<Order> outputTag = new OutputTag<>("seriousList", TypeInformation.of(Order.class));
+/*
+    .allowedLateness(Time.seconds(3)).sideOutputLateData(outputTag)
+    Elements that arrive behind the watermark by more than the specified time will be dropped
+    如果数据到达时间比 watermark 晚了 3s，那么就丢弃到  sideOutputLateData 中
+    之前设置了 watermark 比事件时间晚个 3s，也就是时间窗口的计算触发时间是比比事件时间晚了3s，晚到 3s 内的事件是可以在窗口中收集到的但是超过3s 的事件就会被丢弃现在的这个设置，就是将晚到3s 的数据输出到侧输出流中
+
+  保证数据不丢失，但是具体这个数据如何处理看业务需求了，看是否需要人工接入
+         */
+SingleOutputStreamOperator<String> apply = watermarkDs
+  .keyBy(Order::getUserId)
+  // 滚动窗口
+  .window(TumblingEventTimeWindows.of(Time.seconds(5)))
+  .allowedLateness(Time.seconds(3)).sideOutputLateData(outputTag)
+  .apply(new WindowFunction<Order, String, Integer, TimeWindow>() {
+    @Override
+    public void apply(Integer key, TimeWindow window, Iterable<Order> input, Collector<String> out) throws Exception {
+      ArrayList<String> eventTimeList = new ArrayList<>();
+      for (Order order : input) {
+        Long eventTime = order.eventTime;
+        eventTimeList.add(df.format(eventTime));
+      }
+      long timestamp = window.maxTimestamp();
+      String ourStr = String.format("key: %s 窗口开始结束时间:[%s-%s)，属于该窗口的事件事件%s",
+                                    key, df.format(window.getStart()), df.format(window.getEnd()), eventTimeList.toString());
+
+      out.collect(ourStr);
+    }
+  });
+
+DataStream<Order> sideOutput = apply.getSideOutput(outputTag).map(order -> {
+  order.setEventTimeStr(df.format(order.eventTime));
+  return order;
+});
+
+sideOutput.print("sideoutput");
+apply.print("normal data");
+```
+
+
 
 ---
 

@@ -127,8 +127,7 @@ val words = ... // streaming DataFrame of schema { timestamp: Timestamp, word: S
 val windowedCounts = words
     .withWatermark("eventTime", "10 minutes")// 需定义在聚合之前
     .groupBy(
-        window("eventTime", "10 minutes", "5 minutes"),
-        $"word")
+        window("eventTime", "10 minutes", "5 minutes"),$"word")
     .count()
 
 // 结果输出模型必须使用Append 或者 Update 模式

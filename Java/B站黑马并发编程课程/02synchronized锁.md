@@ -90,7 +90,7 @@ public class SynchronizedM {
 
 ![a](./pics/jt1.png)
 
-`synchronized` 实际是用对象锁保证了**临界区内代码的原子性**，临界区内的代码对外是不可分割的，不会被线程切 换所打断。
+`synchronized` 实际是用对象锁保证了**临界区内代码的原子性**，临界区内的代码对外是不可分割的，不会被线程切换所打断。
 
 * 如果把 `synchronized(obj)` 放在 `for` 循环的外面，如何理解?-- 原子性
 

@@ -39,6 +39,7 @@ val sc = spark.sparkContext
 // sc 用来创建 RDD
 sc.setLogLevel("ERROR")
 
+// sparkStreaming 中只有一种时间语义，processTime
 val ssc = new StreamingContext(sc, Seconds(2)) // 一个小批次产生的时间间隔
 ssc.sparkContext.setLogLevel("WARN")
 // ssc 创建实时计算抽象的数据集 DStream
@@ -82,7 +83,7 @@ ssc.awaitTermination()
 
 **Basic Souce**:  在 `StreamingContext`中可以使用的API，如 `systems`, and` socket connections`.
 
-**Advanced source**: `Kafka`, `Kinesis` 等，他们需要和外部依赖才能够使用
+**Advanced source**: `Kafka`, `Kinesis` 等，他们需要和外部依赖才能够使用， 连接kafka 通过连接到 zookeeper 发现分区，然后读取到数据
 
 需要注意的是如果使用了`Receiver` 那么就不能够设置 `master("local[1]")/master("local")`
 
@@ -102,14 +103,17 @@ ssc.awaitTermination()
 class MyReceiverCls extends Receiver[String](StorageLevel.MEMORY_ONLY)
 ```
 
-对于高级的一个`Source`,如 kafka 和 Kinesis，如果正确的读了数据，那么任何的 `Failure` 数据都不会发生丢失。`kafka` 可以被视为一个信赖度高的 `Receiver`
-
-* *Reliable Receiver* : 当数据被正确读取到，以及多个副本存储下来后，会给数据源`kafka` 发回 `ack` 信息
-* *Unreliable Receiver*: 
+**Receiver** 连接，如果数据太多消费不来，还会有一种 `Write ahead log` 的方式写到磁盘
 
 
 
+##### 直连方式
 
+直接通过 kafka 底层的api , 直接连接到 kafka 的分区中,按需拉取数据,且还有一种按压机制, 可以调节获取数据,如果生产的数据太多,那么阀门调小,这样进来的数据就比较的少了,如果消费的数据比较多,那么可以将阀门调大一些,使得读进来的数据更多一些,通过反馈,一种自我调节的功能。
+
+*`spark 3.0`  目前是只支持这种直连的方式了。*
+
+**直连**注意这里是说，`spark` 的 `source` 直接连接到 `kafka` 的分区，也就是读进来的 `Source` 的 `RDD` 的分区和 `kafka` 的分区是一样的。一个`kafka` 的分区，对应`spark RDD` 中的一个分区。
 
 
 
@@ -164,7 +168,49 @@ class MyReceiverCls extends Receiver[String](StorageLevel.MEMORY_ONLY)
 
 ##### 有状态
 
+使用的时候需要使用到 `sparkStreaming checkpoint`，设置一个存储路径
+
 `updateStateByKey`
+
+```scala
+val spark = SparkSession
+.builder()
+.master("local[2]")
+// 这里的 core 至少需要有2个，因为一个被 receiver 占了，剩下的被计算逻辑占用
+.getOrCreate()
+
+val sc = spark.sparkContext
+// sc 用来创建 RDD
+sc.setLogLevel("ERROR")
+
+val ssc = new StreamingContext(sc, Seconds(3)) // 一个小批次产生的时间间隔
+ssc.sparkContext.setLogLevel("WARN")
+// ssc 创建实时计算抽象的数据集 DStream
+
+// checkpoint 存储路径，用于缓冲有状态操作的时候产生的状态。
+ssc.checkpoint("cp")
+
+val lines: ReceiverInputDStream[String] = ssc.socketTextStream("localhost", 9999)
+
+// 无状态数据操作，只对当前的采集周几数据进行处理
+val value: DStream[String] = lines.flatMap(_.split(" "))
+
+val value1: DStream[(String, Int)] = value.map(a => (a, 1))
+
+val value2 = value1.updateStateByKey((seq: Seq[Int], buffer: Option[Int]) => {
+  val existValue = buffer.getOrElse(0) + seq.sum
+  Option(existValue)
+})
+
+value2.print()
+
+// 开启
+ssc.start()
+
+// 让程序一直运行, 将Driver 挂起
+ssc.awaitTermination()
+ssc.stop()
+```
 
 需要做2件事情
 
@@ -208,7 +254,133 @@ window 还有一些计算方式
 * `reduceByKeyAndWindow(func, windowLength, slidInterval, [numTasks])`  当在一个 (K,V) 对的`DStream` 上调用此函数，会返回一个新的(K,V) 对的 `DStream`， 此处通过对滑动窗口中批次数据使用 `reduce ` 整和每个 `key` 的 `value` 值.
 * `reduceByKeyAndWindow(func, invFunc, windowLength, slidInterval, [numTasks])`  这个函数是上述函数的变化版本，没和窗口的reduce 值都通过前一个窗的 `reduce` 值都是通过有前一个窗口的reduce 值来递增计算，通过reduce 进入到滑动窗口数据合并反向reduce 离开窗口的旧数据来实现这个操作，一个例子就是随着窗口滑动对 `keys` 的加、减，计数，通过前面介绍可以想到，每个函数只使用于可逆的 reduce 函数，也就是这些reduce 函数相应的 反reduce 函数(invFunc形式传入)。
 
+```scala
+def main(args: Array[String]): Unit = {
 
+  val spark = SparkSession
+  .builder()
+  .master("local[2]")
+  // 这里的 core 至少需要有2个，因为一个被 receiver 占了，剩下的被计算逻辑占用
+  .getOrCreate()
+
+  val sc = spark.sparkContext
+  // sc 用来创建 RDD
+  sc.setLogLevel("ERROR")
+
+  val ssc = new StreamingContext(sc, Seconds(3)) // 一个小批次产生的时间间隔
+  ssc.sparkContext.setLogLevel("WARN")
+
+  val lines: ReceiverInputDStream[String] = ssc.socketTextStream("localhost", 9999)
+
+  val value: DStream[(String, Int)] = lines.map(a => (a, 1))
+
+  // 这里的周期的设置是和 批次产生的时间间隔是相关的
+  // 窗口的范围应该是采集周期的整数倍，一个窗口中收集若干个 microBatch
+  // 如果只给一个时间参数，那么就是一个滚动参数，步长就是一个批次时间间隔
+  // 还可以传入第二个参数，这个参数就是步长，这个时候就是一个滑动窗口
+  // 注意这里是会产生一个同一个数据出现在多个窗口中，出现重复统计
+  // 滑动步长: 隔多久触发一次计算
+  val value1: DStream[(String, Int)] = value.window(Seconds(9))
+  //    val value1: DStream[(String, Int)] = value.window(Seconds(9), Seconds(3))
+  val value2: DStream[(String, Int)] = value1.reduceByKey(_ + _)
+
+  value2.print()
+
+  // 开启
+  ssc.start()
+  // 让程序一直运行, 将Driver 挂起
+  ssc.awaitTermination()
+
+  ssc.stop()
+```
+
+`value.window(Seconds(9))` 只有这个参数的时候
+
+```scala
+def window(windowDuration: Duration): DStream[T] = window(windowDuration, this.slideDuration)
+
+/**
+   * Return a new DStream in which each RDD contains all the elements in seen in a
+   * sliding window of time over this DStream.
+   * @param windowDuration width of the window; must be a multiple of this DStream's
+   *                       batching interval
+   * @param slideDuration  sliding interval of the window (i.e., the interval after which
+   *                       the new DStream will generate RDDs); must be a multiple of this
+   *                       DStream's batching interval
+   */
+def window(windowDuration: Duration, slideDuration: Duration): DStream[T] = ssc.withScope {
+  new WindowedDStream(this, windowDuration, slideDuration)
+}
+```
+
+如上的源码中的信息，`windowDuration` 也就是第一个参数，如果只使用第一个参数，那么是一个滚动窗口，参数值需要是`batchDuration` 的整数倍，这样一个窗口就可以将若干个`microBatch` 中的信息放进来。
+
+`window(windowDuration: Duration, slideDuration: Duration)` 给2个参数，那么就是一个滑动参数，滑动的步长也应该是`batchDuration` 的整数倍，分别如下所示：
+
+![a](./pics/streamingwindow.png)
+
+如上在的个截图中，当窗口大小为2，步长为1的时候，那么会有一个批次数据的重复。针对这个批次的数据的重复，又有另外一个算子
+
+```scala
+def reduceByKeyAndWindow(
+      reduceFunc: (V, V) => V, // 新数据聚合操作
+      invReduceFunc: (V, V) => V, // 重复数据的操作
+      windowDuration: Duration, // 需要是batch 时间的整数倍
+      slideDuration: Duration, // 需要是batch 时间的整数倍
+      partitioner: Partitioner,
+      filterFunc: ((K, V)) => Boolean
+    ): DStream[(K, V)]
+```
+
+使用
+
+```scala
+val spark = SparkSession
+.builder()
+.master("local[*]")
+// 这里的 core 至少需要有2个，因为一个被 receiver 占了，剩下的被计算逻辑占用
+.getOrCreate()
+
+val sc = spark.sparkContext
+// sc 用来创建 RDD
+sc.setLogLevel("ERROR")
+
+val ssc = new StreamingContext(sc, Seconds(3)) // 一个小批次产生的时间间隔
+ssc.sparkContext.setLogLevel("WARN")
+
+ssc.checkpoint("cp")
+
+// ssc 创建实时计算抽象的数据集 DStream
+val lines: ReceiverInputDStream[String] = ssc.socketTextStream("localhost", 9999)
+
+val value: DStream[(String, Int)] = lines.map(a => (a, 1))
+
+// 是属于有状态计算
+val value1: DStream[(String, Int)] = value.reduceByKeyAndWindow(
+  (x: Int, y:Int) => x+y,  // 新数据增加
+  (x: Int, y: Int) => x-y, // 对于重复数据，需要键一个值
+  Seconds(6),
+  Seconds(6)
+)
+
+val value2: DStream[(String, Int)] = value1.reduceByKey(_ + _)
+
+
+value2.print()
+
+// 开启
+ssc.start()
+
+// 让程序一直运行, 将Driver 挂起，阻塞线程，后面的代码执行不到。
+ssc.awaitTermination()
+
+// 优雅关闭
+// stop(stopSparkContext: Boolean, stopGracefully: Boolean)
+// 也就是 executor 先将当前的数据处理完毕，之后再去关闭，而不是直接关闭
+// 不能再同一个线程中执行，需要在另外一个线程中执行，并且通过外部的一个按钮能够控制这个线程，
+// ssc.stop(true, true)
+}
+```
 
 ---
 
@@ -240,18 +412,50 @@ window 还有一些计算方式
 
 ```javascript
 docker run -d --name zookeeper -p 2181:2181  wurstmeister/zookeeper
-docker run -d --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 --link zookeeper -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://192.168.3.39:9092 -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 -t wurstmeister/kafka
+docker run -d --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 --link zookeeper -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://10.205.20.6:9092 -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 -t wurstmeister/kafka
+
 ```
 
 ```javascript
 docker exec -it kafka sh
 
-./bin/kafka-console-producer.sh --broker-list localhost:9092 --topic sparkstreaming
+
+
+./bin/kafka-console-producer.sh --broker-list 10.205.20.6:9092 --topic sparkstreaming
 
 // 在另一个窗口打开容器命令窗口，运行一个消费者：172.17.0.3 是 kafka容器的ip。
 // 可以通过进入kafka容器的命令窗口（docker exec -it ba2540992d9e /bin/bash），使用ifconfig查看ip。
 
-./bin/kafka-console-consumer.sh --bootstrap-server 172.17.0.3:9092 --topic sparkstreaming
+./bin/kafka-console-consumer.sh --bootstrap-server 10.205.20.6:9092 --topic sparkstreaming
+
+// 查看偏移量信息, 存放在 __consumer_offsets topic 中
+./bin/kafka-console-consumer.sh --bootstrap-server 172.17.0.3:9092 --topic __consumer_offsets --formatter "kafka.coordinator.group.GroupMetadataManager\$OffsetsMessageFormatter" --consumer.config /opt/kafka_2.13-2.7.0/config/consumer.properties --from-beginning
+
+// 这里看到到的信息会隔一几秒钟进行更新，__consumer_offsets 有50个分区，里面有偏移量信息，默认消费者会自动的提交消费信息的偏移
+// 量信息, 然后在启动消费者的时候，会从这个分区中读最新的取偏移量，然后开始根据偏移量再去读到信息，防止信息的重复消费
+// 每个分区有自己的偏移量
+// 自动提交偏移量会不进准，在读取消息之后，是已经消费了，但是程序挂掉了还没有提交偏移量，这个时候下次读的时候还是会读取到已经消费了
+// 的这个消息，出现重复读，控制不够精准
+
+// 可以程序控制提交偏移
+```
+
+在代码中设置
+
+```scala
+"enable.auto.commit" -> (false: java.lang.Boolean) // 不自动提交偏移量
+```
+
+在我的例子中并没有将自动提交关闭掉，所以使用另外一种方式
+
+```scala
+./bin/kafka-console-producer.sh --broker-list localhost:9092 --topic sparkstreaming
+
+./bin/kafka-topics.sh --create --zookeeper localhost:2181 --partitions 2 --replication-factor 2 --topic sparkstreaming1
+--config enable.auto.commit=false
+
+./bin/kafka-topics.sh --bootstrap-server 172.17.0.3:9092 --create --topic sparkstreaming1 --partitions 1 --replication-factor 1 --config enable.auto.commit=false
+
 ```
 
 
@@ -274,4 +478,40 @@ spark streaming中的状态操作:
 
 对于普通版的reduceByKeyAndWindow，每个滑动间隔都对窗口内的数据做聚合，性能低效。
 对于一个滑动窗口，每一个新窗口实际上是在之前窗口中减去一些数据，再加上一些新的数据，从而构成新的窗口。增量版的reduceByKeyAndWindow便采用这种逻辑，通过加新减旧实现增量窗口聚合。reduceFunc,即正向的reduce 函数(如_+_)；invReduceFunc，即反向的reduce 函数(如 _-_)。
+
+---
+
+#### sparkStreaming 实现exactely onece 
+
+##### 简单的方法
+
+* 程序自动提交kafka 偏移
+
+* 手动提交 kafka 偏移
+
+##### 借助外界的事务存储，数据消费结果和kafka 偏移保持一致
+
+* 聚合操作的时候，将结果和偏移量均存储在如mysql 的事务型数据库中，保证存储过程是在一个事务中
+
+![a](./pics/exactlyOnce.png)
+
+* 如果不是聚合操作，那么涉及到的数据量会很多，不可能将数据拿到Driver 端
+
+在Driver 端将数据和偏移量写到如 `Hbase` 中，Hbase 是支持行级别的事务，保证一条数据对应一条偏移量就可以实现精确消费一次了。
+
+habse一行的数据 是有事务的，这一行要么都成功，要么都失败，
+
+因此，我们可以为一个hbase表添加一个offset列族，每次写入一条数据就将offset一并写入,这样就能保证数据的消费和偏移量的记录是同时成功同时失败的
+
+另外一点，利用hbase不需要把数据收集到driver端再写入，前两种都需要把数据收集到driver端，再通过事务、pipeline控制。利用hbase可以再executor端执行，
+
+所以数据量大的话，hbase比较适合，mysql redis只适合每个批次中数据量小的。
+
+---
+
+
+
+
+
+
 

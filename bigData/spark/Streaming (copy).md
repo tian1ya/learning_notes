@@ -24,6 +24,8 @@
 
 ![a](./pics/streaming_2.png)
 
+当实时数据来的时候，sparkStreaming 将实时数据拆分为多个 batch，每个batch 仍然是一个序列rdd，然后将每个 batch 交给计算引擎(Spark engine)处理，计算引擎处理的就是这个rdd。
+
 `sparkStreaming` 提供了高阶抽象`DStream`,  代表着持续的数据流，也可以看做是一个序列的`rdd`  抽象。
 
 #### wordcount 例子
@@ -40,7 +42,7 @@ val sc = spark.sparkContext
 sc.setLogLevel("ERROR")
 
 // sparkStreaming 中只有一种时间语义，processTime
-val ssc = new StreamingContext(sc, Seconds(2)) // 一个小批次产生的时间间隔
+val ssc = new StreamingContext(sc, Seconds(2)) // 必须的一个参数：一个小批次产生的时间间隔
 ssc.sparkContext.setLogLevel("WARN")
 // ssc 创建实时计算抽象的数据集 DStream
 
@@ -61,7 +63,9 @@ ssc.start()
 ssc.awaitTermination()
 ```
 
+使用的时候，你必须设置一个时间
 
+`val ssc = new StreamingContext(sc, Seconds(2))`
 
 #### 基本概念
 
@@ -71,7 +75,7 @@ ssc.awaitTermination()
 
 > `Discretized Stream`: 是对连续 `stream` 的抽象。是为一系列的`RDD` 的抽象。(`represents a continuous stream of data`)
 >
-> 是对`SparkSream` 的最基本的封装，也是抽象的分布式集合，也是封装这描述信息，是对`RDD` 的进一步封装，`DStream` 可以定期的生成 `RDD`
+> 是`SparkSream` 的最基本的封装，也是抽象的分布式集合，也是封装这描述信息，是对`RDD` 的进一步封装，`DStream` 可以定期的生成 `RDD`
 >
 > `DStream` 可以从很多的数据源创建
 >
@@ -398,7 +402,49 @@ ssc.awaitTermination()
 
 ---
 
-#### 关闭
+#### checkpointing
+
+2类的数据是需要存储的
+
+* 元数据
+
+  > 定义如何进行流计算的那些数据
+  >
+  > 1. 一些配置信息
+  > 2. DStreaming 操作
+  > 3. 没有处理结束的batch，如那些job已经在队列中了，但是还没有结束的
+
+* 数据
+
+  > 就是那些正常的数据，这些数据参与了有状态的计算，在容错的时候，需要根据这些数据进行重新计算，而在 unbound 的计算中数据链那就太长了，所以会缓冲下中间的一部分数据，然后计算从这部分数据开始，而不是追溯全部的流里面
+
+元数据的checkpoint 是必须的，在使用 `updateStateByKey` 等有状态的计算的算子的时候是必须开启的，给sparkStreamingContext 一个路径参数，然后状态是被存储在这个路径下 `ssc.checkpoint(checkpointDirectory)`。
+
+在容错恢复的时候，新建 `sparkStreamingContext` 的时候，会从checkpoinit 中读数据，然后恢复job。
+
+```scala
+def functionToCreateContext(): StreamingContext = {
+  val ssc = new StreamingContext(...)   // new context
+  val lines = ssc.socketTextStream(...) // create DStreams
+  ...
+  ssc.checkpoint(checkpointDirectory)   // set checkpoint directory
+  ssc
+}
+
+// Get StreamingContext from checkpoint data or create a new one
+// 如果路径不存在，那么久按照functionToCreateContext，创建新的 context
+val context = StreamingContext.getOrCreate(checkpointDirectory, functionToCreateContext _)
+
+// Do additional setup on context that needs to be done,
+// irrespective of whether it is being started or restarted
+context. ...
+
+// Start the context
+context.start()
+context.awaitTermination()
+```
+
+*a checkpoint interval of 5 - 10 sliding intervals of a DStream is a good setting to try.*
 
 ---
 
@@ -455,10 +501,7 @@ docker exec -it kafka sh
 --config enable.auto.commit=false
 
 ./bin/kafka-topics.sh --bootstrap-server 172.17.0.3:9092 --create --topic sparkstreaming1 --partitions 1 --replication-factor 1 --config enable.auto.commit=false
-
 ```
-
-
 
 ---
 

@@ -458,21 +458,23 @@ context.awaitTermination()
 
 ```javascript
 docker run -d --name zookeeper -p 2181:2181  wurstmeister/zookeeper
-docker run -d --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 --link zookeeper -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://10.205.20.6:9092 -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 -t wurstmeister/kafka
+docker run -d --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 --link zookeeper -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://192.168.3.33:9092 -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 -t wurstmeister/kafka
 
+192.168.3.33
 ```
 
 ```javascript
 docker exec -it kafka sh
 
+192.168.3.33
 
 
-./bin/kafka-console-producer.sh --broker-list 10.205.20.6:9092 --topic sparkstreaming
+./bin/kafka-console-producer.sh --broker-list 192.168.3.33:9092 --topic sparkstreaming
 
 // 在另一个窗口打开容器命令窗口，运行一个消费者：172.17.0.3 是 kafka容器的ip。
 // 可以通过进入kafka容器的命令窗口（docker exec -it ba2540992d9e /bin/bash），使用ifconfig查看ip。
 
-./bin/kafka-console-consumer.sh --bootstrap-server 10.205.20.6:9092 --topic sparkstreaming
+./bin/kafka-console-consumer.sh --bootstrap-server 192.168.3.33:9092 --topic sparkstreaming
 
 // 查看偏移量信息, 存放在 __consumer_offsets topic 中
 ./bin/kafka-console-consumer.sh --bootstrap-server 172.17.0.3:9092 --topic __consumer_offsets --formatter "kafka.coordinator.group.GroupMetadataManager\$OffsetsMessageFormatter" --consumer.config /opt/kafka_2.13-2.7.0/config/consumer.properties --from-beginning

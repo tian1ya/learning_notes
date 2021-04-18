@@ -451,6 +451,8 @@ dataStream
 .process(new TempIncreaseWarning(10000L)) // 10000m = 10s
 ```
 
+基本都是配合窗口函数一起使用。
+
 #### 窗口中的API
 
 在spark DataFrame 中或者SQL 中的开窗函数都是这样的
@@ -494,9 +496,9 @@ dataStream
 
 > 在调用窗口函数之前，如果使用了`keyed` 算子，那么后续的窗口就变为了`keyedWindow` 否则就是`non-keyed window`
 >
-> 使用了`keyed` 算子的好处是将Stream 并行化，一个keyedStream 分配到了一个 task，这些task 之间是可以并行化运行的。
+> 使用了`keyed` 算子的好处是将 `Stream` 并行化，一个 `keyedStream` 分配到了一个  `task`，这些 `task` 之间是可以并行化运行的。
 >
-> 没有使用了`keyed` 算子，那么Stream 只会在一个task中计算，并行度是1。
+> 没有使用了`keyed` 算子，那么 `Stream` 只会在一个task中计算，并行度是1。
 >
 > 使用了`keyed` 算子那么使用`API window `
 >
@@ -537,7 +539,7 @@ dataStream
 > * ReduceFunction: 完成增量聚合，**获取不上窗口的上下文信息**
 > * AggregationFunction: 完成增量聚合，**获取不上窗口的上下文信息**
 > * FoldFunction：以后会移除
-> * ProcessWindowFunction: 提供一个Iterasble 迭代器，可以获得一个窗口的所有元素以及元素的元数据信息，它的执行效率不是很好，因为需要缓存窗口中的所有元素，**但是它可以获取到窗口的上下文信息**
+> * ProcessWindowFunction(KeyedProcessWindowFunction): 提供一个Iterasble 迭代器，可以获得一个窗口的所有元素以及元素的元数据信息，它的执行效率不是很好，因为需要缓存窗口中的所有元素，**但是它可以获取到窗口的上下文信息**
 >
 > 可以将增量聚合和缓存窗口内所有数据进行结合使用
 >
@@ -589,7 +591,9 @@ env.execute();
 
 * AggregationFunction
 
-> 需要传入一个 AggregateFunction 的函数类
+> 需要传入一个 `AggregateFunction` 的函数类
+>
+> `AggregateFunction`: 只能获得数据，完成数据的计算
 
 > ```scala
 > // 这个函数只接受一个函数，做增量聚合操作
@@ -627,37 +631,9 @@ env.execute();
 > ```
 >
 
-```scala
-dataStream
-.keyBy(sensorReading -> sensorReading.id)
-.window(TumblingProcessingTimeWindows.of(Time.seconds(15)))
-.aggregate(new AggregateFunction<SensorReading, Integer, Integer>() {
-  @Override
-  public Integer createAccumulator() {
-    // 累加的初始值
-    return 0;
-  }
-
-  @Override
-  public Integer add(SensorReading value, Integer accumulator) {
-    // 累加，这里累加个数，所以就 +1
-    return accumulator + 1;
-  }
-
-  @Override
-  public Integer getResult(Integer accumulator) {
-    return accumulator;
-  }
-
-  @Override
-  public Integer merge(Integer a, Integer b) {
-    // Merges two accumulators, returning an accumulator with the merged state.
-    return a + b;
-  }
-}).print("res");
-```
-
 * 全窗口函数 `WindowFunction`
+
+> 还可以获取到窗口信息
 
 > ```java
 > dataStream
@@ -689,7 +665,7 @@ dataStream
 > env.execute(); 
 > ```
 
-* 全窗口函数 `ProcessWindowFunction`
+* 窗口函数 `ProcessWindowFunction`
 
 ```scala
 public abstract class ProcessWindowFunction<IN, OUT, KEY, W extends Window> extends AbstractRichFunction
@@ -710,6 +686,8 @@ dataStream
   }
 }).print("a");
 ```
+
+*和聚合函数一样，也是来一条数据，触发一次计算，但是processWindowFunction 函数可以获得上下文，它有生命周期*
 
 * `ProcessWindowFunction`和 `AggeragationFunction/ReduceFunction` 混合使用
 
@@ -773,6 +751,40 @@ String, TimeWindow> {
 在这里先经过一个聚合函数进行聚合，这样一个窗口中输出的数据就只有一个了，
 
 然后这个时候将这一个结果在输出到 `ProcessWindowFunction` 函数中，然后就可以获取到窗口的上下文了
+
+* 通过`Aggregate` 查看集中API的能力
+
+> 1. `aggregate(AggregateFunction<T, ACC, R> function)`
+> 2. `aggregate(AggregateFunction<T, ACC, V> aggFunction, WindowFunction<V, R, K, W> windowFunction)`
+> 3. `aggregate(AggregateFunction<T, ACC, V> aggFunction, ProcessWindowFunction<V, R, K, W> windowFunction)`
+>
+> `AggregateFunction` 只能获取计算数据, 计算方式是增量的，每来一条数据计算一次
+>
+> `WindowFunction`: 可以获取当前窗口的信息，缓存窗口内的所有数据到一个迭代器中
+>
+> `ProcessWindowFunction`: 是最底层的`api`  ，缓存窗口内的所有数据到一个迭代器中，可以获取当前的上下文`ctx(timerService)`， 状态编程，生命周期方法等.
+>
+> 可以调用上面的第2个和第3个接口，可以先将每来的数据进行增量聚合操作，然后将聚合增量数据交给后续的`windowFunction/processWindowFunction` 处理，这样就具备了上面的所有的窗口上下文以及状态带来的好处，且经过聚合之后的输出只有一条数据，窗口函数中也只缓存一条数据。
+
+* `keyBy` 之后调动的api
+
+> 1. `.keyBy(data -> data.getWindowEnd()).process( new TopNHotItems(5))`
+>
+> ```scala
+> public class TopNHotItems extends KeyedProcessFunction<Long, ItemViewCount, String>{
+>   public void processElement(ItemViewCount value, Context ctx, Collector<String> out) throws Exception
+> }
+> // processElement 每来一个数据处理一次
+> ```
+>
+> 2. 
+>
+> ```scala
+> .keyBy(data -> data.getItemId())
+> .window(SlidingEventTimeWindows.of(Time.seconds(5), Time.seconds(5)))
+> .aggregate(new ItemCountAgg(), new WindowItemCountResult());
+> // 因为这里上了窗口，所以在窗口函数中会攒窗口内的数据，然后再窗口触发的时候，进行了计算
+> ```
 
 
 

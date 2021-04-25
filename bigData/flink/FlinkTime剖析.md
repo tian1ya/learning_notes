@@ -1,4 +1,4 @@
-Flink 中的时间，相对于数据库表中的主键
+Flink 中的时间，相当于数据库表中的主键
 
 本文中主要关于对Table 以及 ProcessFunction 中对时间的剖析
 

@@ -12,7 +12,6 @@ val intToInt: Int => Int = a => a * 2
 val rdd3: RDD[Int] = rdd2.map(intToInt)
 
 rdd3.collect()
-
 spark.close()
 ```
 
@@ -54,9 +53,9 @@ private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] =
     f(context, split.index, firstParent[T].iterator(split, context))
-    // 这里是在调读起来的时候回执行的地方
+    // 这里是在调度起来的时候回执行的地方
     // firstParent[T].iterator(split, context) 获取父rdd 的迭代器
-    // 然后 根据 f 函数的签名，以及 new MapPartitionsRDD 传入的函数
+    // 然后根据 f 函数的签名，以及 new MapPartitionsRDD 传入的函数
     // 连在一起实际上调的是 firstParent[T].iterator(split, context).filter(cleanF)
     // 所以这里看出一个分区其实就是一个数据的迭代器
     // firstParent[T].iterator(split, context) 这里返回的数据累加就是 scala 的Iterator
@@ -181,7 +180,7 @@ def mapPartitions[U: ClassTag](
 val value: RDD[(Int, Int)] = rdd1.mapPartitionsWithIndex((index, iter) => iter.map(ele => (index, ele)))
 ```
 
-除iter，传入另外一个参数 index
+除`iter`，传入另外一个参数 `index`
 
 看下其源码
 
@@ -270,8 +269,8 @@ def defaultPartitioner(rdd: RDD[_], others: RDD[_]*): Partitioner = {
     None
   }
 
-// 并行度，如果给了 spark.default.parallelism 参数，那么并行度就是父 rdd 上下文中的 defaultParallelism
-// 否则并行度就是父 rdd 中最大的那个分区数量
+  // 并行度，如果给了 spark.default.parallelism 参数，那么并行度就是父 rdd 上下文中的 defaultParallelism
+  // 否则并行度就是父 rdd 中最大的那个分区数量
   // defaultNumPartitions 从这里来看这个值要么是从父 rdd 中来的，要么是sc上下文中来的
   // sc 中的defaultParallelism 猜测是用户通过 spark.default.parallelism 设置的。
   val defaultNumPartitions = if (rdd.context.conf.contains("spark.default.parallelism")) {
@@ -448,7 +447,7 @@ val spark: SparkSession = Commons.sparkSession
 // groupBy 可以更具元组中的任何一个位置的元素进行 分组
 val unit: RDD[(String, Iterable[(String, Int)])] = value.groupBy(a => a._1)
 
-//    val value1: RDD[(String, Iterable[Int])] = value.groupByKey()
+// val value1: RDD[(String, Iterable[Int])] = value.groupByKey()
 ```
 
 看看 `groupBy` 的源码
@@ -543,7 +542,7 @@ value.combineByKey(intToInt, function, function2)
 value.combineByKeyWithClassTag(intToInt, function, function2, new HashPartitioner(5))
 ```
 
-从上面来看，`combineByKey` 在分区间和分区内之间的操作，和`reduceByKey` 更加的灵活，可以在分区内和分区间使用不同的函数，以及函数的类型也是可以变化的。
+从上面来看，`combineByKey` 在分区间和分区内之间的操作，比`reduceByKey` 更加的灵活，可以在分区内和分区间使用不同的函数，以及函数的类型也是可以变化的。
 
 也是可以直接使用 `ShuffledRDD` 实现`combineByKey` 的。
 
@@ -676,4 +675,5 @@ def aggregateByKey[U: ClassTag](zeroValue: U, partitioner: Partitioner)(seqOp: (
 
   * **aggregateByKey**
 
-    * 和 `combineByKey` 一样，可以传入2个函数，只不过多了多了一个可出传入的初值。
+    * 和 `combineByKey` 一样，可以传入2个函数，只不过多了一个可出传入的初值。
+

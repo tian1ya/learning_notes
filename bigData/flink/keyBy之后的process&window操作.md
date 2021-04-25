@@ -198,7 +198,7 @@ dataStream
 
 ##### apply(WindowFunction<T, R, K, W> function)
 
-`aggFunction` 还是和上面的是一样的。不同的是这里多了一个 `windowFunction`, 该函数可以获取每接受到的一条数据，以及`keyBy` 的 `key` 除此之外还有一个窗口信息。
+`aggFunction` 还是和上面的是一样的。不同的是这里多了一个 `windowFunction`, 该函数可以获取接受到的每一条数据，并缓存下来，触发窗口操作的时候进行计算，以及`keyBy` 的 `key` 除此之外还有一个窗口信息。
 
 ```java
 public interface WindowFunction<IN, OUT, KEY, W extends Window> extends Function, Serializable {

@@ -35,8 +35,8 @@
 
 #### Hive 架构/包含哪些组件
 
-* SQL 解析器： 校验语法是否有问题
-* Physical Plan 编译器：翻译HQL 到MR
+* SQL 解析器： 和`metastore`交互校验语法是否有问题
+* Physical Plan 编译器：翻译 HQL 到MR
 * 优化器：优化MR程序
 * 执行器： 提交任务给yarn
 

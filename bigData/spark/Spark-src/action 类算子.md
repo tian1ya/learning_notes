@@ -28,9 +28,23 @@ def reduce(f: (T, T) => T): T = withScope {
     }
   }
   sc.runJob(this, reducePartition, mergeResult)
-  // Get the final result out of our Option, or throw an exception if the RDD was empty
+  // 获取结果
   jobResult.getOrElse(throw new UnsupportedOperationException("empty collection"))
 }
+```
+
+#### `sc.runJob` 
+
+```scala
+def runJob[T, U: ClassTag](
+      rdd: RDD[T],
+      processPartition: Iterator[T] => U,
+      resultHandler: (Int, U) => Unit): Unit
+
+// processPartition: a function to run on each partition of the RD
+// map side 的函数, 在每个分区中得到分区结果
+// resultHandler: callback to pass each result to
+// 将分区结果传给这里，最终汇总计算
 ```
 
 #### `collect`
@@ -64,7 +78,10 @@ def fold(zeroValue: T)(op: (T, T) => T): T = withScope {
   // Clone the zero value since we will also be serializing it as part of tasks
   var jobResult = Utils.clone(zeroValue, sc.env.closureSerializer.newInstance())
   val cleanOp = sc.clean(op)
+  // 最主要的还是下面2个函数，
+  // 用于在分区中进行计算，使用scala iter 的 fold 方法
   val foldPartition = (iter: Iterator[T]) => iter.fold(zeroValue)(cleanOp)
+  // 然后收集分区中的结果到 jobResult
   val mergeResult = (_: Int, taskResult: T) => jobResult = op(jobResult, taskResult)
   sc.runJob(this, foldPartition, mergeResult)
   jobResult

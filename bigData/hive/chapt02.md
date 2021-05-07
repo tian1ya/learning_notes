@@ -464,8 +464,7 @@ Mysql 存储着哪张表在哪里，当你去查这张表的时候，Hive 会先
 > ```sql
 > -- 分4个桶，后面会输出到4个文件
 > create table stu_buck(id int, name string)
-> clustered by(id)
-> into 4 buckets 
+> clustered by(id) into 4 buckets 
 > row format delimited fields terminated by ',';
 > 
 > -- 直接插分桶表，hive出于保护机制，会先不允许插(如果强制load 进来，那相当于是hdfs put 一个文件，在hdfs 目录上只有一个文件)
@@ -478,9 +477,10 @@ Mysql 存储着哪张表在哪里，当你去查这张表的时候，Hive 会先
 > -- 然后在 hdfs 上会出现4个文件 
 > insert into stu_buck select * from stu_buck_1;
 > ```
->
-> * Hive 可以通过对表进行抽样来满足这个需求
->
+> 
+>* Hive 可以通过对表进行抽样来满足这个需求
+> 
+>数据加载到桶表时，会对字段取hash值，然后与桶的数量取模。把数据放到对应的文件中。物理上，每个桶就是表(或分区）目录里的一个文件，一个作业产生的桶(输出文件)和reduce任务个数相同。
 
 ### 其他常用查询函数
 
@@ -890,6 +890,36 @@ load data local inpath "/aa" into table business;
   > 1. 第一个`JOb` 先对随机分发的数据最一个`Reduce` 的 `Join`, 做部分聚合结果，相同key 的数据会分发到不同的`Reduce` 中。将数据打散
   > 2. 第二个`Job`, 更第一个`Job`的结果按照`groupby Key` 这个过程做最终的聚合操作
 
+* 倾斜原因
+
+  > Map 输出数据按照 key hash 分配待reduce 中，由于 key 分布不均匀业务数据本身的一些特点早上reduce 上的数据差异过大，导致执行时间过程
+  >
+  > 解决方案
+  >
+  > 1. 开启数据倾斜的负载均衡(上面提到的)
+  > 2. SQL 语句调节：
+  >    1. 选用join key分布最均匀的表作为驱动表。做好列裁剪和filter操作，以达到两表做join 的时候，数据量相对变小的效果。
+  >    2.  大小表Join：
+  >           使用map join让小的维度表（1000 条以下的记录条数）先进内存。在map端完成reduce。
+  >    3. 大表Join大表：
+  >           把空值的key变成一个字符串加上随机数，把倾斜的数据分到不同的reduce上，由于null 值关联不上，处理后并不影响最终结果。
+
+* 请说明hive中 Sort By，Order By，Cluster By，Distrbute By各代表什么意思？
+
+  > order by：会对输入做全局排序，因此只有一个reducer（多个reducer无法保证全局有序）。只有一个reducer，会导致当输入规模较大时，需要较长的计算时间。
+  >
+  > sort by：不是全局排序，其在数据进入reducer前完成排序。
+  >
+  > distribute by：按照指定的字段对数据进行划分输出到不同的reduce中。
+  >
+  > cluster by(distribute by+sort by)：除了具有 distribute by 的功能外还兼具 sort by 的功能。
+
+* Hive 函数 split、coalesec、collect_list
+
+  > split 将字符串转化为数组，即：split('a,b,c,d' , ',') ==> ["a","b","c","d"]。
+  > coalesce(T v1, T v2, …) 返回参数中的第一个非空值；如果所有值都为 NULL，那么返回NULL。
+  > collect_list列出该字段所有的值，不去重 => select collect_list(id) from table。
+
 ---
 
 #### 小文件合并
@@ -922,4 +952,21 @@ load data local inpath "/aa" into table business;
   > 输出文件平均大小小于这个值，那么单独启动一个job 去将任务合并
   >
   > `SET hive.merge.smallfiles.avgsize=16777216`
+
+#### Hive 的分区以及优势
+
+> 分区：表目录下，创建一个分区目录
+>
+> 对表进行粗略划分的机制
+>
+> 避免全表查询，提高查询效率
+>
+> 注意事项：
+>
+> 1. 分区字段是**表外字段**，不是创建表的字段
+> 2. 不建议使用中文作为分区字段，分区表是有编码的，字段使用中文的话，需要使用utf8，当全局和分区编码不是 utf8，会报错
+> 3. 不建议分区数太多
+>    1. hdfs 出发，是存储发文件的组件，小文件会使得 NameNode 负担增加
+>    2. MR，一个分区对于task，一个task 启动一个JVM，数据太小，那么计算时间还没有开启和关闭JVM 的时间，
+>    3. 不建议使用动态分区，动态分区话系统会更加当前数据判断来指定否分区，动态分区会使用MR 查询数据
 

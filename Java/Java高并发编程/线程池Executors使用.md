@@ -1,30 +1,46 @@
 [参考文章](https://blog.csdn.net/xuemengrui12/article/details/78543543)
 
-简单的创建多线程方式，创建一个线程（和后续的销毁）开销是非常昂贵的，因为JVM和操作系统都需要分配资源。而且创建的线程数也是不可控的，这将可能导致系统资源被迅速耗尽。为了能更好的控制多线程，JDK提供了一套Executor框架，其本质就是一个线程池，它的核心成员如下：1
+#### 为什么使用线程池
+
+> 1. 降低系统资源消耗。（共享线程）
+> 2. 提高线程可控性。
+
+简单的创建多线程方式，创建一个线程（和后续的销毁）开销是非常昂贵的，因为`JVM`和操作系统都需要分配资源。而且创建的线程数也是不可控的，这将可能导致系统资源被迅速耗尽。为了能更好的控制多线程，`JDK`提供了一套`Executor`框架，其本质就是一个线程池，它的核心成员如下：1
 
 ![executor](./pic/executor.png)
 
-* Executor：一个接口，其定义了一个接收Runnable对象的方法executor，其方法签名为executor(Runnable command)
+* `Executor`：一个接口，其定义了一个接收`Runnable`对象的方法`executor`，其方法签名为`executor(Runnable command)`
 
-* ExecutorService：是一个比Executor使用更广泛的子类接口，其提供了生命周期管理的方法，以及可跟踪一个或多个异步任务执行状况返回Future的方法
-* AbstractExecutorService：ExecutorService执行方法的默认实现
-* ScheduledExecutorServce：一个可定时调度任务的接口
-* ScheduledThreadPoolExecutor：ScheduledExecutorService的实现，一个可定时调度任务的线程池
-* ThreadPoolExecutor：表示一个线程池，可以通过调用Executors的静态工厂方法来创建一个拥有特定功能的线程池并返回一个ExecutorService对象
+> `Executor` 接口提供了一种思想： 将任务提交和任务执行进行解耦。用户无需关注如何创建线程，如何调度线程来执行任务，用户只需提供Runnable对象，将任务的运行逻辑提交到执行器(Executor)中，由Executor框架完成线程的调配和任务的执行部分
+
+* `ExecutorService`：是一个比 `Executor` 使用更广泛的子类接口，其提供了生命周期管理的方法，以及可跟踪一个或多个异步任务执行状况返回 `Future`的方法
+
+> 接口增加了一些能力
+>
+> 1. 扩充执行任务的能力，补充可以为一个或一批异步任务生成Future的方法；
+> 2. 提供了管控线程池的方法，比如停止线程池的运行
+
+* `AbstractExecutorService`
+
+> `AbstractExecutorService` 是一个抽象类，将执行任务的流程串联了起来，保证下层的实现只需关注一个执行任务的方法即可
+
+* `ScheduledExecutorServce`：一个可定时调度任务的接口
+* `ScheduledThreadPoolExecutor`：`ScheduledExecutorService `的实现，一个可定时调度任务的线程池
+* `ThreadPoolExecutor`：表示一个线程池，可以通过调用 `Executors` 的静态工厂方法来创建一个拥有特定功能的线程池并返回一个`ExecutorService`对象
 
 > 以上成员均在 `java.util.concurrent`包中, 是 `JDK`并发包的核心类。其中`ThreadpoolExecutor`表示一个线程池。 `Executors`类则扮演着线程池工厂的角色,通过 `Executors`可以取得一个拥特定功能的线程池。从 `UML`图中亦可知, `ThreadPoolExecutor`类实现了 `Executor`接口, 因此通过这个接口, 任何 `Runnable`的对象都可以被 `ThreadPoolExecutor`线程池调度。
 
 **Executor框架提供了各种类型的线程池, 主要有以下工厂方法: **
 
-> * public static ExecutorService newCachedThreadPool()
+> * `public static ExecutorService newCachedThreadPool()`
 >
 >   > 创建一个可缓存线程池，如果线程池长度超过处理需要，可灵活回收空闲线程，若无可回收，则新建线程，但是在以前构造的线程可用时将重用它们。对于执行很多短期异步任务的程序而言，这些线程池通常可提高程序性能
 >
-> * public static ExecutorService newFixedThreadPool(int nThreads)
+> * `public static ExecutorService newFixedThreadPool(int nThreads)`
 >
 >   > 创建一个可重用固定线程数的线程池，以共享的无界队列方式来运行这些线程，超出的线程会在队列中等待。
 >
-> * public static ScheduledExecutorService newScheduledThreadPool(int corePoolSize)
+> * `public static ScheduledExecutorService newScheduledThreadPool(int corePoolSize)`
 >
 >   > 创建一个定长线程池，支持定时及周期性任务执行。
 
@@ -96,15 +112,15 @@
 
 **使用 ThreadFactory 接口**
 
-> 使用线程工厂就无需再手工编写对 new Thread 的调用了，从而允许应用程序使用特殊的线程子类、属性等等。
+> 使用线程工厂就无需再手工编写对 `new Thread` 的调用了，从而允许应用程序使用特殊的线程子类、属性等等。
 
 ---
 
 **Callable、Future和FutureTask**
 
-> 我们知道创建线程的方式有两种，一种是实现Runnable接口，另一种是继承Thread，但是这两种方式都有个 缺点，那就是在任务执行完成之后无法获取返回结果，那如果我们想要获取返回结果该如何实现呢？
+> 我们知道创建线程的方式有两种，一种是实现 `Runnable`接口，另一种是继承`Thread`，但是这两种方式都有个 缺点，那就是在任务执行完成之后无法获取返回结果，那如果我们想要获取返回结果该如何实现呢？
 >
-> 于是就有了Callable  和 Future 接口
+> 于是就有了`Callable`  和` Future` 接口
 
 ```java
 public interface Runnable {

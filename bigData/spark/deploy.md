@@ -6,7 +6,7 @@
 
 **ResourceManager（即资源管理器）**全局管理所有应用程序计算资源的分配。它和每一台机器的NodeManager（即节点管理服务器）能够管理应用在那台机器上的进程并能对计算进行组织。
 
-**每一个应用的ApplicationMaster** 则负责相应的调度和协调。ApplicationMaster 是一个详细的框架库，它结合从 ResourceManager获得的资源和 NodeManager 协同工作来运行和监控任务。每一个应用的ApplicationMaster 的职责有：向调度器索要适当的资源容器，运行任务，跟踪应用程序的状态和监控它们的进程，处理任务的失败原因。
+**每一个应用的ApplicationMaster** 则负责相应的**调度和协调**。ApplicationMaster 是一个详细的框架库，它结合从 ResourceManager获得的资源和 NodeManager 协同工作来运行和监控任务。每一个应用的ApplicationMaster 的职责有：向调度器索要适当的资源容器，运行任务，跟踪应用程序的状态和监控它们的进程，处理任务的失败原因。
 
 ResourceManager 支持分层级的应用队列，这些队列享有集群一定比例的资源。**从某种意义上讲它就是一个纯粹的调度器**，它在执行过程中不对应用进行监控和状态跟踪。ResourceManager 是基于应用程序对资源的需求进行调度的；每一个应用程序需要不同类型的资源因此就需要不同的容器。资源包括：内存、CPU、磁盘、网络等。
 

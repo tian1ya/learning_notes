@@ -121,7 +121,7 @@ public void withdraw(Integer amount) {
   while (true) {
     int prev = balance.get();
     int next = prev - amount;
-    // 比较并设置值， compareAndSet 比较和设置方法是原子的，
+    // 比较并设置值， compareAndSet 比较和设置方法是原子的.
     if (balance.compareAndSet(prev, next)) {
       break;
     }

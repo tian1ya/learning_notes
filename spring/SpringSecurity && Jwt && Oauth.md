@@ -1,5 +1,33 @@
 #### SpringSecurity && Jwt
 
+`ss` 对`web` 资源的保护主要是靠 `Filter` 实现的，所以从这个 `Filter` 来入手，桌布深入`SS` 原理， 当初始化`Spring Security`时，会创建一个名为 `SpringSecurityFilterChain` 的`Servlet`过滤器，类型为 `org.springframework.security.web.FilterChainProxy`，它实现了`javax.servlet.Filter`，因此外部的请求会经过此 类，下图是`Spring Security`过虑器链结构图:
+
+![a](./pics/ss.png)
+
+`FilterChainProxy`是一个代理，真正起作用的是`FilterChainProxy`中`SecurityFilterChain`所包含的各个`Filter`，同时 这些`Filter`作为`Bean`被`Spring`管理，它们是`Spring Security`核心，各有各的职责，但他们并不直接处理用户的认 证，也不直接处理用户的授权，而是把它们交给了认证管理器`(AuthenticationManager)`和决策管理器` (AccessDecisionManager)`进行处理，下图是`FilterChainProxy`相关类的`UML`图示。
+
+![a](./pics/ss1.png)
+
+过滤器链中主要的几个过滤器及其作用:
+
+`SecurityContextPersistenceFilter`: 
+
+> 这个`Filter`是整个拦截过程的入口和出口(也就是第一个和最后一个拦截 器)，会在请求开始时从配置好的 `SecurityContextRepository` 中获取 `SecurityContext`，然后把它设置给 `SecurityContextHolder`。在请求完成后将 `SecurityContextHolder` 持有的 `SecurityContext `再保存到配置好 的 `SecurityContextRepository`，同时清除 `securityContextHolder` 所持有的 `SecurityContext`;
+
+`UsernamePasswordAuthenticationFilter： 用户名密码认证使用`
+
+> **用于处理来自表单提交的认证**。该表单必须提供对应的用户名和密码，其内部还有登录成功或失败后进行处理的 `AuthenticationSuccessHandler` 和 `AuthenticationFailureHandler`，这些都可以根据需求做相关改变;
+
+`FilterSecurityInterceptor:授权使用`
+
+> 是用于保护 `web`资源的，使用`AccessDecisionManager`对当前用户进行授权访问，前 面已经详细介绍过了;
+
+`ExceptionTranslationFilter`
+
+> 能够捕获来自 `FilterChain` 所有的异常，并进行处理。但是它只会处理两类异常: `AuthenticationException` 和 `AccessDeniedException`，其它的异常它会继续抛出。
+
+![a](./pics/ss2.png)
+
 ---
 
 任何一个权限管理系统，主要分位两个功能 `验证` 和 `鉴权`
@@ -7,6 +35,8 @@
 `Authentication`： 身份验证你是谁，验证用户的身份，一般会使用 `用户名` 和 `密码` 		
 
 `Authorization`:  鉴权，你可以做什么，确认用户的身份(`角色`  `权限`) ，判断能否访问受 保护的 `资源`。
+
+`xxxProvider` 会拿到一个`authentication` 的用户输入的认证信息，然后再获取到真正的用户信息`userDetails`, 然后采用`Encoder` 的`match` 方法判断二者的信息是否一致判断校验
 
 ---
 
@@ -33,7 +63,7 @@ public interface Authentication extends Principal, Serializable {
     // 权限信息列表，默认是GrantedAuthority接口的实现类。
 	Collection<? extends GrantedAuthority> getAuthorities();
     
-    // 用户提交的密码信息，这里的信息在会在验证通过之后移除
+    // 凭证信息 用户提交的密码信息，这里的信息在会在验证通过之后移除
 	Object getCredentials();
     
     // 记录访问者的ip地址和sessionId的值等
@@ -115,8 +145,8 @@ public class BackdoorAuthenticationProvider implements AuthenticationProvider {
     }
     @Override
     public boolean supports(Class<?> authentication) {
-        return authentication.equals(
-                UsernamePasswordAuthenticationToken.class);
+        // 判断当前Provider 是否支持 authentication 的校验
+        return authentication.equals(UsernamePasswordAuthenticationToken.class);
     }
 }
 ```
@@ -142,6 +172,7 @@ public <T extends UserDetailsService> 	DaoAuthenticationConfigurer<Authenticatio
 public class MyUserDetailsService implements UserDetailsService {
     @Autowired
     MyUserMapper mapper;
+  
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         MyUserBean userBean = mapper.selectByUsername(username);
@@ -184,9 +215,58 @@ public class MyUserBean implements UserDetails {
 
 **使用数据库进行验证其实只需要掌握两个接口即可，即UserDetailsService和UserDetails。**
 
+##### `PasswordEncoder`
+
+> `DaoAuthenticationProvider`认证处理器通过`UserDetailsService`获取到`UserDetails`后，它是如何与请求 `Authentication`中的密码做对比呢?
+>
+> 在这里`Spring Security`为了适应多种多样的加密类型，又做了抽象，`DaoAuthenticationProvider`通过 `PasswordEncoder`接口的`matches`方法进行密码的对比，而具体的密码对比细节取决于实现:
+>
+> ```java
+> public interface PasswordEncoder {
+>        String encode(CharSequence var1);
+>        boolean matches(CharSequence var1, String var2);
+>        default boolean upgradeEncoding(String encodedPassword) {
+>            return false;
+> 			} 
+> }
+> 
+> @Bean
+> public PasswordEncoder passwordEncoder() {
+> 		return NoOpPasswordEncoder.getInstance(); 
+> }
+> ```
+>
+> 实际项目中推荐使用`BCryptPasswordEncoder`, `Pbkdf2PasswordEncoder`, `SCryptPasswordEncoder`等，感兴趣 的大家可以看看这些`PasswordEncoder`的具体实现
+
 ----
 
 #### 鉴权
+
+![a](./pics/ss3.png)
+
+1. 拦截请求，已认证用户访问受保护的`web`资源将被`SecurityFilterChain`中的 `FilterSecurityInterceptor` 的子 类拦截。
+
+2. 获取资源访问策略，`FilterSecurityInterceptor`会从 `SecurityMetadataSource` 的子类 `DefaultFilterInvocationSecurityMetadataSource` 获取要访问当前资源所需要的权限 `Collection<ConfigAttribute> 。`
+
+`SecurityMetadataSource`其实就是读取访问策略的抽象，而读取的内容，其实就是我们配置的访问规则， 读取访问策略如:
+
+授权管理器的核心
+
+```java
+public interface AccessDecisionManager {
+/**
+* 		通过传递的参数来决定用户是否有访问对应受保护资源的权限
+			authentication: 用户的身份信息，含有用户的权限
+			Collection<ConfigAttribute> 资源要求的权限
+			object:要访问的受保护资源，web请求对应FilterInvocation
+*/
+void decide(Authentication authentication , Object object, Collection<ConfigAttribute>
+				configAttributes ) throws AccessDeniedException, InsufficientAuthenticationException; 
+  //略..
+}
+```
+
+`Spring Security`使用标准`Filter`建立了对`web`请求的拦截，最终实现对资源的授权访问。
 
 ```yaml
 当用户未登录时，访问任何需要权限的资源都会转向登录页面，尝试进行登录；
@@ -199,6 +279,71 @@ public class MyUserBean implements UserDetails {
 
 若鉴权成功则用户顺利访问页面，否则在decide方法中抛出AccessDeniedException异常，这个异常会被AccessDeniedHandler的实现类（MyAccessDeniedHandler）处理。它仅仅是生成了一个json对象，转换为字符串返回给客户端了。
 ```
+
+授权决策
+
+AccessDecisionManager采用投票的方式来确定是否能够访问受保护资源。
+
+![a](./pics/ss4.png)
+
+```java
+public interface AccessDecisionVoter<S> { 
+  	int ACCESS_GRANTED = 1; // 同意
+		int ACCESS_ABSTAIN = 0; // 弃权
+		int ACCESS_DENIED = ‐1; // 拒绝
+       boolean supports(ConfigAttribute var1);
+       boolean supports(Class<?> var1);
+       int vote(Authentication var1, S var2, Collection<ConfigAttribute> var3);
+   }
+```
+
+``AffirmativeBased:默认方法`
+
+> 逻辑是: 
+>
+> (1)只要有`AccessDecisionVoter`的投票为`ACCESS_GRANTED`则同意用户进行访问; 
+>
+> (2)如果全部弃权也表示通过; 
+>
+> (3)如果没有一个人投赞成票，但是有人投反对票，则将抛出`AccessDeniedException`。
+
+`ConsensusBased`
+
+> (1)如果赞成票多于反对票则表示通过。 
+>
+> (2)反过来，如果反对票多于赞成票则将抛出`AccessDeniedException`。
+>
+> (3)如果赞成票与反对票相同且不等于0，并且属性`allowIfEqualGrantedDeniedDecisions`的值为`true`，则表 示通过，否则将抛出异常`AccessDeniedException`。参数`allowIfEqualGrantedDeniedDecisions`的值默认为`true`。
+>
+> (4)如果所有的`AccessDecisionVoter`都弃权了，则将视参数`allowIfAllAbstainDecisions`的值而定，如果该值 为`true`则表示通过，否则将抛出异常`AccessDeniedException`。参数`allowIfAllAbstainDecisions`的值默认为`false`。
+
+`UnanimousBased`
+
+> 的逻辑与另外两种实现有点不一样，另外两种会一次性把受保护对象的配置属性全部传递 给`AccessDecisionVoter`进行投票，而`UnanimousBased`会一次只传递一个`ConfigAttribute`给 `AccessDecisionVoter`进行投票。这也就意味着如果我们的**AccessDecisionVoter的逻辑是只要传递进来的 ConfigAttribute中有一个能够匹配则投赞成票**，但是放到`UnanimousBased`中其投票结果就不一定是赞成了。 `UnanimousBased`的逻辑具体来说是这样的:
+>
+> (1)如果受保护对象配置的某一个`ConfigAttribute`被任意的`AccessDecisionVoter`反对了，则将抛出 `AccessDeniedException`。
+>
+> (2)如果没有反对票，但是有赞成票，则表示通过。
+>
+>  (3)如果全部弃权了，则将视参数`allowIfAllAbstainDecisions`的值而定，`true`则通过，`false`则抛出`AccessDeniedException`。 `Spring Security`也内置一些投票者实现类如`RoleVoter`、`AuthenticatedVoter`和`WebExpressionVoter`等.
+
+`spring security`提供会话管 理，认证通过后将身份信息放入`SecurityContextHolder`上下文，`SecurityContext`与当前线程进行绑定，方便获取 用户身份。
+
+#### 会话规则
+
+```java
+SessionCreationPolicy: 会话规则
+ALWAYS：Always create an HttpSession
+NEVER：never create an HttpSession
+IF_REQUIRED：will only create an HttpSession if required
+STATELESS：will never create an HttpSession and it will never use it to obtain the SecurityContext  
+```
+
+
+
+授权的方式包括` web`授权和方法授权，`web`授权是通过 `url`拦截进行授权，方法授权是通过 方法拦截进行授权。他 们都会调用`accessDecisionManager`进行授权决策，若为`web`授权则拦截器为`FilterSecurityInterceptor`;若为方 法授权则拦截器为`MethodSecurityInterceptor`。如果同时通过`web`授权和方法授权则先执行web授权，再执行方 法授权，最后决策通过，则允许访问资源，否则将禁止访问。
+
+
 
 设计表
 
@@ -456,7 +601,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 ---
 
-Security 核心过滤器**
+**Security 核心过滤器**
 
 ![springSecurityFilters](./springSecurityFilters.png)
 
@@ -492,7 +637,7 @@ Security 核心过滤器**
 
 ![EntryPoints](./EntryPoints.png)
 
-> 以下是几个常使用的登录端点，看名字就可以看出来，是认证十班之后，让用户跳转的登录页面，也就是当实现，可以使用这四个实现类，也可以自己继承这个接口(主要是重写commence方法)，实现自己的登录抛出异常信息，
+> 以下是几个常使用的登录端点，看名字就可以看出来，是认证失败之后，让用户跳转的登录页面，也就是当实现，可以使用这四个实现类，也可以自己继承这个接口(主要是重写commence方法)，实现自己的登录抛出异常信息，
 >
 > 在使用的时候，在配置方法`configure(HttpSecurity http)`中配置， `.authenticationEntryPoint(unauthorizedHandler)`
 
@@ -504,7 +649,9 @@ Security 核心过滤器**
 
 ---
 
----
+![a](./pics/ss5.png)
+
+
 
 ##### OAuth2
 
@@ -531,6 +678,28 @@ Security 核心过滤器**
 > `资源所有者密码凭证`: 与受信任的应用程序(如服务本身拥有的应用程序)一起使用。
 >
 > `客户端证书`: 与应用程序API访问一起使用。
+
+![a](./pics/ss6.png)
+
+#### OAuth2.0认证流程
+
+![a](./pics/ss7.png)
+
+客户端
+
+> 本身不存储资源，需要通过资源拥有者的授权去请求资源服务器的资源，比如:Android客户端、Web客户端(浏 览器端)、微信客户端等。
+
+资源拥有者
+
+> 通常为用户，也可以是应用程序，即该资源的拥有者。
+
+授权服务器(也称认证服务器)
+
+> 用于服务提供商对资源拥有的身份进行认证、对访问资源进行授权，认证成功后会给客户端发放令牌(access_token)，作为客户端访问资源服务器的凭据。本例为微信的认证服务器。
+
+资源服务器
+
+> 存储资源的服务器，本例子为微信存储的用户信息。
 
 
 

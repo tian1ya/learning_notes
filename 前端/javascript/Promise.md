@@ -464,3 +464,135 @@ server.listen(port)
 
 #### Promise.all()
 
+---
+
+[为什么要有 Async/await ?](https://codehhr.cn/2021/06/25/js/es7-async-await/)
+
+Promise 虽然跳出了异步嵌套的怪圈 , 解决了回调地狱的问题 , 用链式表达更加清晰 , 但是我们也发现如果有大量的异步请求的时候 , 流程复杂的情况下 , 会发现充满了屏幕的 then , 看起来非常吃力 , 而 ES7 的 Async/Await 的出现就是为了解决这种复杂的情况
+
+
+
+async 用于申明一个 function 是异步的 , 返回一个 promise 对象 , 而 await 可以认为是 async wait 的简写 , 等待一个异步方法执行完成 , async 必须声明的是一个 function , await 必须在声明的函数内部使用
+
+
+
+ES7语法糖，基于Promise,处理异步任务更加方便, 具体来说是 `Promise.then` 的语法糖。
+
+
+
+`await` 右侧的表达式一般为promise对象，但也可以是其他的值
+如果表达式是promise对象，那么返回的是promise**成功**的值
+如果是其他的值，直接将此值作为await的返回值（可以认为await 是失效了的，直接结果返回）
+
+
+
+[文章](https://www.cnblogs.com/leungUwah/p/7932912.html)
+
+async顾名思义是“异步”的意思，async用于声明一个函数是异步的。而await从字面意思上是“等待”的意思，就是用于等待异步完成。并且await只能在async函数中使用
+
+通常async、await都是跟随Promise一起使用的。为什么这么说呢？因为async返回的都是一个Promise对象同时async适用于任何类型的函数上。这样await得到的就是一个Promise对象(如果不是Promise对象的话那async返回的是什么 就是什么)；
+
+await得到Promise对象之后就等待Promise接下来的resolve或者reject。
+
+来看一段简单的代码：
+
+```javascript
+async function testSync() {
+     const response = await new Promise(resolve => {
+         setTimeout(() => {
+             resolve("async await test...");
+          }, 1000);
+     });
+     console.log(response);
+}
+testSync();//async await test...
+```
+
+就这样一个简单的async、await异步就完成了。使用async、await完成异步操作代码可读与写法上更像是同步的，也更容易让人理解。
+
+##  async、await串行并行处理
+
+串行：等待前面一个await执行后接着执行下一个await，以此类推
+
+```javascript
+async function asyncAwaitFn(str) {
+    return await new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(str)
+        }, 1000);
+    })
+}
+
+const serialFn = async () => { //串行执行
+    console.time('serialFn')
+    console.log(await asyncAwaitFn('string 1'));
+    console.log(await asyncAwaitFn('string 2'));
+    console.timeEnd('serialFn')
+}
+
+serialFn();
+```
+
+输出：
+
+> string 1
+> string 2
+> serialFn: 2011.585205078125 ms
+
+可以看到两个await串行执行的总耗时为两千多毫秒。
+
+
+
+### 并行：将多个promise直接发起请求（先执行async所在函数），然后再进行await操作。
+
+```javascript
+async function asyncAwaitFn(str) {
+    return await new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(str)
+        }, 1000);
+    })
+}
+const parallel = async () => { //并行执行
+    console.time('parallel')
+    const parallelOne = asyncAwaitFn('string 1');
+    const parallelTwo = asyncAwaitFn('string 2')
+
+    //直接打印
+    console.log(await parallelOne)
+    console.log(await parallelTwo)
+
+    console.timeEnd('parallel')
+}
+parallel()
+```
+
+> string 1
+> string 2
+> parallel: 1008.758056640625 ms
+
+## async、await错误处理
+
+JavaScript异步请求肯定会有请求失败的情况，上面也说到了async返回的是一个Promise对象。既然是返回一个Promise对象的话那处理当异步请求发生错误的时候我们就要处理reject的状态了。
+
+在Promise中当请求reject的时候我们可以使用catch。为了保持代码的健壮性使用async、**await的时候我们使用try catch来处理错误。**
+
+```javascript
+async function catchErr() {
+    try {
+        const errRes = await new Promise((resolve, reject) => {
+            setTimeout(() => {
+                reject("http error...");
+            }, 1000);
+            );
+            //平常我们也可以在await请求成功后通过判断当前status是不是200来判断请求是否成功
+            // console.log(errRes.status, errRes.statusText);
+        } catch(err) {
+            console.log(err);
+        }
+    }
+}
+    
+catchErr(); //http error...
+```
+

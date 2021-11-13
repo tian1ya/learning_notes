@@ -1,10 +1,24 @@
 #### AOP：动态代理
 
+AOP 得初衷
+
+* 不重复
+* 关注分离，非功能性需求从功能性需求剥离
+  * 好处： 集中管理，代码可读性、扩展性增强
+
+问题：
+
+* 为什么要使用 AOP 得变成范式
+* AOP 使用场景
+* AOP 2大核心要点
+
+
+
 指在程序运行期间动态的将某段代码切入到执行方法指定位置进行运行的编程方式。
 
 在业务逻辑运行的时候将日志进行打印(方法之前、方法运行结束，方法出现异常等)
 
-切面的通知方法：
+切面的通知Advice方法：
 
 * 前置通知(@Before)：目前方法运行之前通知
 * 后置通知(@After)：目标方法运行之后通知,无论方法正常结束还是异常结束(可以理解为该方法在 finally 模块中最后调用)
@@ -79,6 +93,28 @@ public class LogAspect {
 
     /*
         抽取公共的切入点表达式
+        *匹配任意数量得字符
+        + 匹配指定类及其子类
+        .. 一般用于匹配任意数得子包或者参数
+        
+        匹配包/类型
+        匹配secondCodeRecordService 下所有得方法
+        @Pointcut("within(com.atguigu.secondCodeRecordService)")
+        
+        匹配 atguigu 包下所有得类得所有方法
+        @Pointcut("within(com.atguigu..*)")
+        
+        匹配 atguigu 包下所有得类得所有方法
+        @Pointcut("this(com.atguigu..*)")
+        
+        execution: 参数匹配
+        args：也能实现同样得功能，且更简单
+        
+        注解匹配
+        @annotation(xx): 匹配标注有 xx 注解得方方法
+        @within(xx)：标注注解 xx 下得类得方法
+        @target
+        @args
      */
     @Pointcut("execution(public int com.atguigu.secondCodeRecord.aop.MathCalcutor.*(..))")
     public void pointcut(){}
@@ -188,23 +224,23 @@ public class MainConfigAOP {
 >    AbstractAutoProxyCreator.setBeanFactory，也有后置处理的一些逻辑
 >    AbstractAutoProxyCreator.postProcessBeforeInstantiation 后置处理器
 >    AbstractAutoProxyCreator.postProcessAfterInitialization
->    
+>       
 >    AbstractAdvisorAutoProxyCreator.setBeanFactory
 >    	AbstractAdvisorAutoProxyCreator.initBeanFactory
->      
+>         
 >    AnnotationAwareAspectJAutoProxyCreator.initBeanFactory
->    
+>       
 >    创建个和注册 AnnotationAwareAspectJAutoProxyCreator 的流程
 >    调用流程
 >    1. 传入主配置类 创建ioc new   	
 >       AnnotationConfigApplicationContext(MainConfigAOP.class)
->      
+>         
 >    2. 注册配置类register(annotatedClasses)
 >       调用 refresh(); 刷新容器(创建bean，初始化容器)
->      
+>         
 >    3. registerBeanPostProcessors(beanFactory); 注册bean 的后置处理器，
 >       拦截bean的创建(Register bean processors that intercept bean creation.)
->      
+>         
 >       1. 获取到定义了所有BeanPostProcessor, beanFactory.getBeanNamesForType
 >       2. 还给容器中增加了其他的 BeanPostProcessorChecker  	
 >       3. 将 BeanPostProcessor 进行分类，按照实现优先级接口分为 
@@ -229,7 +265,7 @@ public class MainConfigAOP {
 >        5. this.aspectJAdvisorFactory = new 
 >           ReflectiveAspectJAdvisorFactory(beanFactory);
 >    			 反射创建 aspectJAdvisorFactory 以及 this.aspectJAdvisorsBuilder
->    
+>       
 >    4. AnnotationAwareAspectJAutoProxyCreator 创建结束
 >    5. 排序 sortPostProcessors(orderedPostProcessors, beanFactory);
 >    6. 添加 pp 到bf registerBeanPostProcessors(beanFactory, orderedPostProcessors);
@@ -308,7 +344,7 @@ public class MainConfigAOP {
 >       2. 根据ProxyFactory 对象(this.advised)，获取目标方法拦截器链
 >       3. chain=this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, 
 >                                                                   targetClass);
->      		
+>      		   
 >    			getInterceptorsAndDynamicInterceptionAdvice	
 >          getInterceptors  
 >    			interceptorList 保存5个增强器，一个默认，4个通知方法
@@ -316,7 +352,7 @@ public class MainConfigAOP {
 >    	 4. 如果 chain 是空，那么直接执行对象的方法，chain是拦截器链
 >       5. 如果有，需要执行的目标对象，方法，拦截器链等信息传入 
 >       6. CglibMethodInvocation(..)..proceed()
->            
+>               
 >       		currentInterceptorIndex 从-1开始，一次获取到拦截器中获取到通知方法，通知方法执行
 >            之后,调用proceed()
 >          然后 currentInterceptorIndex+=1，拿到下一个拦截器在调用下一个 proceed()

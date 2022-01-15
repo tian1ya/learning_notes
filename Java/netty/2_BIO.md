@@ -111,7 +111,7 @@
   >
   > 使用 telnet 测试
   >
-  > <img src="./pics/5.png" alt="a" style="zoom:50%;" />
+  > <img src="./pics/5.png"/>
   >
   > 如上每一次建立一个 telnet (有多少个客户端)连接那么就会新的创建一个线程连接
   >

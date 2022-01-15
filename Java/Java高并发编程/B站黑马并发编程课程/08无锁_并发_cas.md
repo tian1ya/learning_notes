@@ -151,7 +151,40 @@ public void withdraw(Integer amount) {
 >
 > **所以需要时在多核的`CPU` 才能发挥作用，且线程的个数是最好不超过核数，如果是在单核下`synchronized` 效率更高的**
 
-#### CAS 特点
+####  锁类型
+
+* 乐观锁-悲观锁
+
+> * 悲观锁
+>
+>   对外界修改保持保守态度，认为数据很容易被其他线程修改，所以再数据被处理前先对数据进行加锁，并再整个处理过程中，使数据粗粒锁定状态
+>
+> * 乐观锁：相对于悲观锁来说，认为数据再一般情况下不会造成冲突，所以再访问记录前不会加排他锁，而是再进行数据提交更新时候，才会正式对数据从新释放进行检查。
+
+* 公平锁-非公平锁
+
+> * 公平锁
+>
+>   > 线程获取锁的方式是按照请求锁的实践早晚决定的，早来早获取
+>
+> * 非公平锁
+>
+>   > 获取锁，不是按照早来早获得方式
+
+* 独占锁-共享锁
+
+> * 独占锁： 锁只能被一个线程占有，是一种悲观锁
+> * 共享锁： 锁可以被多个线程占有，是一种乐观锁
+
+* 可重入锁
+
+> 已经占有锁的线程，可以再次进入
+
+* 自旋锁
+
+> 在没有获取锁之后，会在循环个几次尝试获取锁。
+
+#### SAC 特点
 
 ##### 适合场景
 
@@ -164,6 +197,48 @@ public void withdraw(Integer amount) {
 * CAS 体现的是无锁并发，无阻碍并发，请仔细体会下面2句话
   * 因为没有使用 `synchronized` ，所以线程不会陷入阻塞，这是效率提升的因素之一
   * 但如果竞争激烈(线程数多于cpu 核数)，可以想到重试必然频繁发生，反而效率得到影响
+
+---
+
+#### `Unsafe 类`
+
+```java
+private static Unsafe unsafe;
+
+static {
+    // 直接调用会报错，JVM 官方不建议直接调用 unsafe 方法的，
+    //        unsafe = Unsafe.getUnsafe();
+
+    try {
+        // 通过反射可以拿到
+        Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+        theUnsafe.setAccessible(true);
+        unsafe = (Unsafe) theUnsafe.get(null);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+private final long stateOffset = 0L;
+
+private volatile long state = 0;
+
+public static void main(String[] args) throws NoSuchFieldException {
+
+    CreateUnsafe unsafeTest = new CreateUnsafe();
+    /**
+         * 获取变量所属类的内存偏移地址
+         */
+    long offsetAddress = unsafe.objectFieldOffset(unsafeTest.getClass().getDeclaredField("state"));
+
+    boolean sucess = unsafe.compareAndSwapInt(unsafeTest, offsetAddress, 0, 1);
+    System.out.println(sucess);
+    System.out.println(unsafeTest.state);
+
+}
+```
+
+
 
 ---
 

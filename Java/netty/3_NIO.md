@@ -233,14 +233,14 @@
   >   ```java
   >   public static void main(String[] args) {
   >           ByteBuffer buffer = ByteBuffer.allocate(64);
-  >   
+  >
   >           buffer.putInt(100);
   >           buffer.putLong(1);
   >           buffer.putChar('上');
   >           buffer.putShort((short) 4);
-  >   
+  >
   >           buffer.flip();
-  >   
+  >
   >           System.out.println(buffer.getInt());
   >           System.out.println(buffer.getLong());
   >           System.out.println(buffer.getChar());
@@ -253,24 +253,24 @@
   >   ```java
   >   public static void main(String[] args) {
   >     ByteBuffer buffer = ByteBuffer.allocate(64);
-  >   
+  >
   >     buffer.putInt(100);
   >     buffer.putLong(1);
   >     buffer.putChar('上');
   >     buffer.putShort((short) 4);
-  >   
+  >
   >     buffer.flip();
-  >   
+  >
   >     // 得到一个只读的 buffer
   >     ByteBuffer onlyReadBuffer = buffer.asReadOnlyBuffer();
   >     System.out.println(onlyReadBuffer.getClass());
   >     // class java.nio.HeapByteBufferR
-  >   
+  >
   >     System.out.println(buffer.getInt());
   >     System.out.println(buffer.getLong());
   >     System.out.println(buffer.getChar());
   >     System.out.println(buffer.getShort());
-  >   
+  >
   >     onlyReadBuffer.putLong(12); // java.nio.ReadOnlyBufferException
   >   }
   >   ```
@@ -299,7 +299,7 @@
   >       }
   >   ```
   >
-  >   
+  > 
   >
   > * NIO 还支持多个 buffer 的读和写
   >
@@ -323,8 +323,8 @@
   >     final ByteBuffer[] byteBuffers = new ByteBuffer[2];
   >     byteBuffers[0] = ByteBuffer.allocate(5);
   >     byteBuffers[1] = ByteBuffer.allocate(3);
-  >   
-  >   
+  >
+  >
   >     SocketChannel accept = socketChannel.accept();
   >     int messageLength = 8; // 假设从客户端接收 8 个字节
   >     while (true) {
@@ -334,26 +334,27 @@
   >         long read = accept.read(byteBuffers);
   >         byteRead += read;
   >         System.out.println("byteRead=" + byteBuffers.length);
-  >   
+  >     
   >         Arrays.asList(byteBuffers)
   >           .stream()
   >           .map(byffer -> "position=" + byffer.position() + ", limit=" + byffer.limit())
   >           .forEach(System.out::println);
   >       }
-  >   
+  >     
   >       Arrays.asList(byteBuffers).forEach(Buffer::flip);
-  >   
+  >     
   >       long byteWrite = 0;
   >       while (byteWrite < messageLength) {
   >         long writeCnt = accept.write(byteBuffers);
   >         byteWrite += writeCnt;
   >       }
-  >   
+  >     
   >       //复位
   >       Arrays.asList(byteBuffers).forEach(Buffer::clear);
   >       System.out.println("byteRead:=" + byteRead + " byteWrite=" + byteWrite + ", messagelength" + messageLength);
   >     }
   >   }
+  >
   >   ```
 
 * Selector 
@@ -426,7 +427,7 @@
   > socket.getOutputStream().write(arr) 
   > ```
   >
-  > <img src="./pics/22.png" alt="a" style="zoom:50%;" />
+  > <img src="./pics/22.png"/>
   >
   > 以上的过程中，从操作系统硬盘 -> 操作系统内核缓存 -> 用户缓存(用户对数据可以做一些操作) -> socket 缓存 -> 最后落回到协议引擎，这过程每步骤都会涉及到拷贝。而且从内核态到用户的态的切换也发生了4次。
   >
@@ -466,8 +467,8 @@
 
 **相比于传统的 BIO 模型来说， NIO 模型的最大改进是：**
 
-1. 使用比较少的线程便可以管理多个客户端的连接，提高了并发量并且减少的资源消耗（减少了线程的上下文切换的开销）
-2. 在没有 I/O 操作相关的事情的时候，线程可以被安排在其他任务上面，以让线程资源得到充分利用。
+1. 使用比**较少的线程便可以管理多个客户端的连接**，提高了并发量并且减少的资源消耗（减少了线程的上下文切换的开销）
+2. 在没有 I/O 操作相关的事情的时候，线程可以被安排在其他任务上面，以让**线程资源得到充分利用**。
 
 ### 使用 NIO 编写代码太难了
 

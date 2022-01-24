@@ -94,3 +94,67 @@ appendfsync always|everysec|no
 # 也可以配置到 redis.conf 中
 ```
 
+#### AOF 重写
+
+随着不断写入到`.aof` 日志中，文件会越来越大，`redis` 将`.aof` 重写机制压缩文件体积，将`redis` 进程内的数据转化为写命令同步到新的`.aof` 文件的过程，将若干条指令执行结果转化为最终结果数据对应的指令。
+
+```shell
+incr age
+incr age
+incr age
+
+# 等同于
+incrby age 3
+```
+
+可以压缩磁盘占用量，提供持久化效率
+
+* 超时的数据不写入
+* 忽略无效指令，重写时候使用进程内数据直接生产，新的 `aof` 文件只保留最中数据的写入命令
+* 对同一个数的多条写命令合并为一条命令
+
+#### 配置重写方式
+
+* 手动
+
+```shell
+bgrewriteaof
+```
+
+* 自动
+
+```shell
+# 当 aof 当前缓冲中的记录大小达到 size 的时候执行重写
+# aof 的当前当大小记录在 aof_current_size 中
+auto-aof-rewrite-min-size size
+
+# aof_base_size
+auto-aof-rewrite-percentage percentage
+```
+
+![a](./pics/08.png)
+
+相关参数可以通过
+
+```shell
+info
+```
+
+指令查看
+
+![a](./pics/09.png)
+
+只是命令只会会返回
+
+`Backgroud append only file rewrite started`
+
+![a](./pics/10.png)
+
+开启自动重写
+
+![a](./pics/11.png)
+
+![a](./pics/12.png)
+
+![a](./pics/13.png)
+

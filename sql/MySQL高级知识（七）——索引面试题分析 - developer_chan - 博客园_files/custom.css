@@ -1,0 +1,24 @@
+#cnblogs_post_body h3{
+    background: none repeat scroll 0% 0% rgb(123, 165, 206);
+    border-radius: 5px 5px 5px 5px;
+    box-shadow: 0px 0px 0px 1px rgb(95, 90, 75), 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+    color: rgb(255, 255, 255);
+    font-family: "微软雅黑","宋体","黑体",Arial;
+    font-size: 18px;
+    height: 30px;
+    line-height: 25px;
+    margin: 15px 0px !important;
+    padding: 5px 0px 5px 0px;
+    width:98%;
+}
+
+#cnblogs_post_body a:hover{
+   background-color:rgb(255, 102, 0);
+}
+/*溢出隐藏设置*/
+#topics, #mainContent {
+    overflow: visible;
+}
+#postDesc {
+    float: none;
+}

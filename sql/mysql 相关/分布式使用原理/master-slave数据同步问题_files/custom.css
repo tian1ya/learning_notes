@@ -1,0 +1,288 @@
+/* 定制公告栏时钟位置 */
+#clockdiv {
+    /* left, center, right */
+    text-align: center;
+    padding:10px 0 0 0;
+    border:1px solid #d9d9d9;
+    margin-bottom:5px;
+   margin-top:5px;
+}
+
+//博客园标题
+#cnblogs_post_body
+{
+    color: black;      
+    font: 0.875em/1.5em "微软雅黑" , "PTSans" , "Arial" ,sans-serif;
+    font-size: 15px;
+}
+#cnblogs_post_body h1    {
+    background: #333366;
+    border-radius: 6px 6px 6px 6px;
+    box-shadow: 0 0 0 1px #5F5A4B, 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+    color: #FFFFFF;
+    font-family: "微软雅黑" , "宋体" , "黑体" ,Arial;
+    font-size: 23px;
+    font-weight: bold;
+    height: 25px;
+    line-height: 25px;
+    margin: 18px 0 !important;
+    padding: 8px 0 5px 5px;
+    text-shadow: 2px 2px 3px #222222;
+}
+#cnblogs_post_body h2    {
+    background: #006699;
+    border-radius: 6px 6px 6px 6px;
+    box-shadow: 0 0 0 1px #5F5A4B, 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+    color: #FFFFFF;
+    font-family: "微软雅黑" , "宋体" , "黑体" ,Arial;
+    font-size: 20px;
+    font-weight: bold;
+    height: 25px;
+    line-height: 25px;
+    margin: 18px 0 !important;
+    padding: 8px 0 5px 5px;
+    text-shadow: 2px 2px 3px #222222;
+}
+#cnblogs_post_body h3    {
+    background: #2B6695;
+    border-radius: 6px 6px 6px 6px;
+    box-shadow: 0 0 0 1px #5F5A4B, 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+    color: #FFFFFF;
+    font-family: "微软雅黑" , "宋体" , "黑体" ,Arial;
+    font-size: 18px;
+    font-weight: bold;
+    height: 25px;
+    line-height: 25px;
+    margin: 18px 0 !important;
+    padding: 8px 0 5px 5px;
+    text-shadow: 2px 2px 3px #222222;
+}
+#cnblogs_post_body h4{
+    background: #2B6600;
+    border-radius: 6px 6px 6px 6px;
+    box-shadow: 0 0 0 1px #5F5A4B, 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+    color: #FFFFFF;
+    font-family: "微软雅黑" , "宋体" , "黑体" ,Arial;
+    font-size: 16px;
+    font-weight: bold;
+    height: 24px;
+    line-height: 23px;
+    margin: 12px 0 !important;
+    padding: 5px 0 5px 10px;
+    text-shadow: 2px 2px 3px #222222;
+}
+
+<!-- 去除尾部广告 -->
+div[id^="ad_"] {
+    display: none;
+}
+div[class^="c_ad"] {
+    display: none;
+}
+div[id^="under_post"] {
+    display: none;
+}
+
+//特效粒子
+body {
+background-color:whitesmoke;
+}     // 修改背景颜色为半透明
+ // 修改其他边框的颜色
+#home,#sideBarMain>div,#blog-sidecolumn>div>div,.catListView{
+background-color:rgba(255,255,255,0);
+}
+
+/*图片点击放大 -- 溢出隐藏设置*/
+#topics, #mainContent {
+    overflow: visible;
+}
+#postDesc {
+    float: none;
+}
+
+/*快速评论*/
+#div_digg {
+    position: fixed;
+    bottom: 10%;
+    right: 20px;
+    border: 2px solid #ECD7B1;
+    padding: 10px;
+    width: 120px;
+    background-color: #fff;
+    border-radius: 5px 5px 5px 5px !important;
+    box-shadow: 0 0 0 1px #5F5A4B, 1px 1px 6px 1px rgba(10, 10, 0, 0.5);
+}
+/* 页面布局 */
+#home {
+    width: 75%;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+/* 公开栏加样式 */
+.catListTitle {
+	font-size: 2.35em;
+	margin-top: 10px;
+	margin-bottom: 10.5px;
+	border-left: 10px solid #F70938;
+	padding: 10px 0 10px 14px;
+	background-color: #f7f7f7;
+}
+/* 将公告栏移动到左边 */
+/*
+#mainContent {
+    float: right;
+}
+#sideBar {
+    float: left;
+}
+*/
+
+/* 将公告栏之间间隔 */
+.newsItem, .catListEssay, .catListLink, .catListNoteBook, .catListTag, .catListPostCategory, .catListPostArchive, .catListImageCategory, .catListArticleArchive, .catListView, .catListFeedback, .mySearch, .catListComment, .catListBlogRank, .catList, .catListArticleCategory {
+    margin-bottom: 20px;
+}
+/* 修改文章间距 */
+.entrylistItem {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+/* 隐藏顶部翻页按钮 */
+#homepage_top_pager {
+	display:none;
+}
+
+/* 置顶小火箭样式  start  */
+#rocket-to-top div {
+    left: 0;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    top: 0;
+    width: 149px;
+}
+#rocket-to-top .level-2 {
+    background: url("https://images.cnblogs.com/cnblogs_com/l-hh/1644622/o_200214050832rocket_button_up.png") no-repeat scroll -149px 0 transparent;
+    display: none;
+    height: 230px;
+    opacity: 0;
+    z-index: 1;
+}
+#rocket-to-top .level-3 {
+    background: none repeat scroll 0 0 transparent;
+    cursor: pointer;
+    display: block;
+    height: 150px;
+    z-index: 2;
+}
+#rocket-to-top {
+    background: url("https://images.cnblogs.com/cnblogs_com/l-hh/1644622/o_200214050832rocket_button_up.png") no-repeat scroll 0 0 transparent;
+    cursor: default;
+    display: block;
+    height: 250px;
+    margin: -125px 0 0;
+    overflow: hidden;
+    padding: 0;
+    position: fixed;
+    right: 13%; 
+    top: 90%;
+    width: 149px;
+    z-index: 11;
+    float: right;
+}
+/* 置顶小火箭样式  end */
+
+/* 代码字体大小 */
+.cnblogs_code span {
+    font-size: 14px !important;
+}
+
+/* 取消引用左上角符号图标 */
+.postBody blockquote {
+	background:transparent;
+}
+.blogpost-body blockquote {
+	margin:1px 0;
+}
+/* Markdown字体大小 */
+.postBody {
+    font-size: 16px;
+}
+/* Markdown代码块字体大小 */
+.cnblogs-markdown .hljs, .cnblogs-post-body .hljs {
+    font-size: 14px !important;
+}
+
+/*
+Atom One Dark With support for ReasonML by Gidi Morris, based off work by Daniel Gamage
+Original One Dark Syntax theme from https://github.com/atom/one-dark-syntax
+
+.hljs {
+    color: #abb2bf;
+    background: #282c34;
+  }
+ .cnblogs-markdown .hljs-keyword,.cnblogs-markdown .hljs-operator {
+    color: #F92672;
+  }
+ .cnblogs-markdown .hljs-pattern-match {
+    color: #F92672;
+  }
+ .cnblogs-markdown .hljs-pattern-match.cnblogs-markdown .hljs-constructor {
+    color: #61aeee;
+  }
+ .cnblogs-markdown .hljs-function {
+    color: #61aeee;
+  }
+ .cnblogs-markdown .hljs-function.cnblogs-markdown .hljs-params {
+    color: #A6E22E;
+  }
+ .cnblogs-markdown .hljs-function.cnblogs-markdown .hljs-params.cnblogs-markdown .hljs-typing {
+    color: #FD971F;
+  }
+ .cnblogs-markdown .hljs-module-access.cnblogs-markdown .hljs-module {
+    color: #7e57c2;
+  }
+ .cnblogs-markdown .hljs-constructor {
+    color: #e2b93d;
+  }
+ .cnblogs-markdown .hljs-constructor.cnblogs-markdown .hljs-string {
+    color: #9CCC65;
+  }
+ .cnblogs-markdown .hljs-comment,.cnblogs-markdown .hljs-quote {
+    color: #b18eb1;
+    font-style: italic;
+  }
+ .cnblogs-markdown .hljs-doctag,.cnblogs-markdown .hljs-formula {
+    color: #c678dd;
+  }
+ .cnblogs-markdown .hljs-section,.cnblogs-markdown .hljs-name,.cnblogs-markdown .hljs-selector-tag,.cnblogs-markdown .hljs-deletion,.cnblogs-markdown .hljs-subst {
+    color: #e06c75;
+  }
+ .cnblogs-markdown .hljs-literal {
+    color: #56b6c2;
+  }
+ .cnblogs-markdown .hljs-string,.cnblogs-markdown .hljs-regexp,.cnblogs-markdown .hljs-addition,.cnblogs-markdown .hljs-attribute,.cnblogs-markdown .hljs-meta.cnblogs-markdown .hljs-string {
+    color: #98c379;
+  }
+ .cnblogs-markdown .hljs-built_in,
+ .cnblogs-markdown .hljs-title.class_,
+ .cnblogs-markdown .hljs-class.cnblogs-markdown .hljs-title {
+    color: #e6c07b;
+  }
+ .cnblogs-markdown .hljs-attr,.cnblogs-markdown .hljs-variable,.cnblogs-markdown .hljs-template-variable,.cnblogs-markdown .hljs-type,.cnblogs-markdown .hljs-selector-class,.cnblogs-markdown .hljs-selector-attr,.cnblogs-markdown .hljs-selector-pseudo,.cnblogs-markdown .hljs-number {
+    color: #d19a66;
+  }
+ .cnblogs-markdown .hljs-symbol,.cnblogs-markdown .hljs-bullet,.cnblogs-markdown .hljs-link,.cnblogs-markdown .hljs-meta,.cnblogs-markdown .hljs-selector-id,.cnblogs-markdown .hljs-title {
+    color: #61aeee;
+  }
+ .cnblogs-markdown .hljs-emphasis {
+    font-style: italic;
+  }
+ .cnblogs-markdown .hljs-strong {
+    font-weight: bold;
+  }
+ .cnblogs-markdown .hljs-link {
+    text-decoration: underline;
+  }
+
+  */

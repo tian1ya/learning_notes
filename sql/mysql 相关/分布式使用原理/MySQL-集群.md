@@ -315,7 +315,7 @@ EOF
 >
 > `lvs`:  已经写到了 linux 的内核之中，所需要的机器比较多。
 
-* 安装
+* [安装](https://www.cnblogs.com/MacoLee/p/5853413.html)
 
 ```shell
 tar -axvf haproxy-ss-LATEST.tar.gz
@@ -361,6 +361,19 @@ defaults
 　　#balance source #设置默认负载均衡方式，类似于nginx的ip_hash
 　　#balnace leastconn #设置默认负载均衡方式，最小连接数
 
+listen stats
+　　bind 0.0.0.0:1080 #设置Frontend和Backend的组合体，监控组的名称，按需要自定义名称
+　　mode http #http的7层模式
+　　option httplog #采用http日志格式
+　　#log 127.0.0.1 local0 err #错误日志记录
+　　maxconn 10 #默认的最大连接数
+　　stats refresh 30s #统计页面自动刷新时间
+　　stats uri /stats #统计页面url
+　　stats realm XingCloud\ Haproxy #统计页面密码框上提示文本
+　　stats auth admin:admin #设置监控页面的用户和密码:admin,可以设置多个用户名
+　　stats auth Frank:Frank #设置监控页面的用户和密码：Frank
+　　stats hide-version #隐藏统计页面上HAProxy的版本信息
+　　stats admin if TRUE #设置手工启动/禁用，后端服务器(haproxy-1.4.9以后版本)
 
 listen tcptest 
 　　bind 0.0.0.0:5222 
@@ -368,7 +381,19 @@ listen tcptest
 　　option tcplog #采用tcp日志格式 
 　　#balance source 
 　　#log 127.0.0.1 local0 debug 
-　　server s1 192.168.56.100:3307 weight 1
+　　server s1 192.168.56.100:3307 weight 2
 　　server s2 192.168.56.100:3308 weight 1
 ```
+
+通过`navicate` 就可以连接`haproxy` 就可以连到2个机器上了，也可以从配置的统计页面能看到负载的服务器的状态。
+
+
+
+---
+
+#### 高可用
+
+![a](./pics/03.png)
+
+> `keepAlived`
 

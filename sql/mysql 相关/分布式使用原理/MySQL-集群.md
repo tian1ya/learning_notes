@@ -51,13 +51,13 @@
 >    ```shell
 >    # 查看日志
 >    show binlog event in xxx
->    
+>             
 >    # 查看当前日志的状态
 >    show master status
->    
+>             
 >    # 查看所有的日志文件
 >    show master logs 
->    
+>             
 >    # 清空所有日志
 >    reset master;
 >    ```
@@ -396,4 +396,72 @@ listen tcptest
 ![a](./pics/03.png)
 
 > `keepAlived`
+>
+> 原理比较简单，就是机器直接发送心跳机制，当一个机器接受不到心跳的时候，就是损坏了，然后另外一个机器作为master。
+>
+> Keepalived+mysql**双主来实现MySQL-HA**，我们必须保证两台MySQL 数据库 的数据完全一样，基本思路是两台MySQL互为主从关系，通过Keepalived配置虚拟IP，实现当其中的一台MySQL数据库宕机后，应用能够自动切换到另外一台MySQL数据库，保证系统的高可用
+
+
+
+#### 分库分表
+
+> 按照条件，将存储在一个数据库的数据(一个节点)，分布到不同的数据库中去(多个节点)。
+
+* 垂直分
+
+> 数据库级别的拆分
+>
+> 针对不同的业务，将多个表，分到不同的数据库中。使用到的表分到不同的数据库，不同的数据库存储在不同的物理节点上。
+>
+> 带来的问题就是夸库的增删改，以及分布式事务。
+>
+> 还有一个拆分表就是将一个表拆分为多个表，然后两个表使用外键链接。也是一种垂直分
+
+* 水平分
+
+> ![a](./pics/分库分表.png)
+>
+> 分库后的每个库有全部的表，但是每个表中只有部分数据。
+>
+> 表级别，对数据拆分，一个表分为个表。
+>
+> 拆分之后如何存储，可以有同一个库不同的表，同一个节点不同的库，不同节点不同库。
+>
+> * 拆分方式
+>   * `id` 拆分，那么限定`[0-10000]` 存放在`A库`， `[10000-100000]` 存放在`B库`
+>   * 按照日期年月拆分
+>   * 按照指定字段取模拆分，可以指定分为5个库
+>
+> ```mysql
+>  create user 'test'@'%' identified by 'test';
+>  grant all on *.* to 'test'@'%';
+>  -- 水平拆表
+>  -- t_table_2017
+>  -- t_table_2016
+>  create database test1;
+>  use test1;
+>  create table t_table(id int primary key auto_increment, name varchar(10));
+>  create table t_table_2017(id int primary key auto_increment, name varchar(10));
+>  create table t_table_2016(id int primary key auto_increment, name varchar(10));
+>  -- 往那个表中操作，在代码中完成逻辑
+> ```
+
+* 水平拆分/垂直拆分 均数据逻辑拆分
+* 物理拆分
+
+> 表分区：数据是以文件存储在磁盘，可以将文件拆为多个，分布在不同的磁盘
+
+不使用中间件进行多个拆分的是的问题
+
+* 数据一致性问题
+* 分布式事务问题
+* 跨表，夸库访问
+
+#### 中间件MyCat
+
+处于客户端和`MySQL` 中间，客户端只访问中间件，中间件链接中后面一个`MySLQ` 集群，至于客户端访问那个库，那是中间件的事情。
+
+
+
+
 

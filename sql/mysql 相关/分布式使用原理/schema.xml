@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!DOCTYPE mycat:schema SYSTEM "schema.dtd">
+<mycat:schema xmlns:mycat="http://io.mycat/">
+
+	<schema name="ITCAST" checkSQLschema="true" sqlMaxLimit="100">
+  <!-- 逻辑库库名，下面有一个逻辑分片，这些表分别再dataNode 中 -->
+		<table name="TB_TEST" dataNode="dn1,dn2,dn3" rule="auto-sharding-long" />
+	</schema>
+
+<!-- 三个dataNode 定义，每一个dataNode 都位于dataHost(数据库服务器)中，且每一个服务器都有db1的数据库 -->
+	<dataNode name="dn1" dataHost="localhost1" database="db1" /> 
+	<dataNode name="dn2" dataHost="localhost2" database="db1" />
+	<dataNode name="dn3" dataHost="localhost3" database="db1" /> 
+  <!-- 在数据库服务器localhost1 中有一个名为 db1的数据库, -->
+
+<!-- 每一个数据库服务器的链接信息 -->
+	<dataHost name="localhost1" maxCon="1000" minCon="10" balance="0"
+			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+		<heartbeat>select user()</heartbeat>
+    <!-- mycat中的心跳，检测mysql是否还活着 -->
+		<writeHost host="hostM1" url="localhost:3306" user="root" password="root"></writeHost>
+	</dataHost>
+
+  	<dataHost name="localhost2" maxCon="1000" minCon="10" balance="0"
+			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+		<heartbeat>select user()</heartbeat>
+    <!-- mycat中的心跳，检测mysql是否还活着 -->
+		<writeHost host="hostM1" url="localhost:3307" user="root" password="root"></writeHost>
+	</dataHost>
+
+  	<dataHost name="localhost3" maxCon="1000" minCon="10" balance="0"
+			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+		<heartbeat>select user()</heartbeat>
+    <!-- mycat中的心跳，检测mysql是否还活着 -->
+		<writeHost host="hostM1" url="localhost:3308" user="root" password="root"></writeHost>
+	</dataHost>
+	
+</mycat:schema>

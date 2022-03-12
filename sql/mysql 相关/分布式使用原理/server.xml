@@ -10,19 +10,22 @@
 <!DOCTYPE mycat:server SYSTEM "server.dtd">
 <mycat:server xmlns:mycat="http://io.mycat/">
 	<system>
-	<property name="nonePasswordLogin">0</property> <!-- 0为需要密码登陆、1为不需要密码登陆 ,默认为0，设置为1则需要指定默认账户-->
-	<property name="useHandshakeV10">1</property>
+	<property name="nonePasswordLogin">0</property> <!-- 登录mycat的时候是否密码：0为需要密码登陆、1为不需要密码登陆 ,默认为0，设置为1则需要指定默认账户-->
+	<property name="useHandshakeV10">1</property> 
+  <!-- 是否兼容高版本jdbc驱动 1-是，0-否 -->
   <property name="charset">utf8</property>
-	<property name="useSqlStat">0</property>  <!-- 1为开启实时统计、0为关闭 -->
-	<property name="useGlobleTableCheck">0</property>  <!-- 1为开启全加班一致性检测、0为关闭 -->
+	<property name="useSqlStat">0</property>  <!-- 1为开启SQL实时统计、0为关闭。统计SQL语句执行情况，是否执行效率低，读写比例等 -->
+	<property name="useGlobleTableCheck">0</property>  <!-- 1为开启全局表一致性检测、0为关闭 -->
 		<property name="sqlExecuteTimeout">300</property>  <!-- SQL 执行超时 单位:秒-->
 		<property name="sequnceHandlerType">2</property>
+    <!-- 指定mycat全局序列类型0-本地文件，1-数据库方式，2-时间戳方式，默认使用本地文件方式，文件主要用于测试 -->
 		<!--<property name="sequnceHandlerPattern">(?:(\s*next\s+value\s+for\s*MYCATSEQ_(\w+))(,|\)|\s)*)+</property>-->
 		<!--必须带有MYCATSEQ_或者 mycatseq_进入序列匹配流程 注意MYCATSEQ_有空格的情况-->
 		<property name="sequnceHandlerPattern">(?:(\s*next\s+value\s+for\s*MYCATSEQ_(\w+))(,|\)|\s)*)+</property>
 	<property name="subqueryRelationshipCheck">false</property> <!-- 子查询中存在关联查询的情况下,检查关联字段中是否有分片字段 .默认 false -->
       <!--  <property name="useCompression">1</property>--> <!--1为开启mysql压缩协议-->
-        <!--  <property name="fakeMySQLVersion">5.6.20</property>--> <!--设置模拟的MySQL版本号-->
+      <!--  <property name="fakeMySQLVersion">5.6.20</property>--> 
+      <!--设置模拟的MySQL版本号，mycat通过实现mysql 协议模拟mysql，使得客户端使用mycat就像是在使用mysql-->
 	<!-- <property name="processorBufferChunk">40960</property> -->
 	<!-- 
 	<property name="processors">1</property> 
@@ -30,13 +33,14 @@
 	 -->
         <!--默认为type 0: DirectByteBufferPool | type 1 ByteBufferArena | type 2 NettyBufferPool -->
 		<property name="processorBufferPoolType">0</property>
-		<!--默认是65535 64K 用于sql解析时最大文本长度 -->
+		<!--配置缓存池大小，每次分配Socket Direct Buffer 大小，默认是65535 64K 用于sql解析时最大文本长度 -->
 		<!--<property name="maxStringLiteralLength">65535</property>-->
 		<!--<property name="sequnceHandlerType">0</property>-->
 		<!--<property name="backSocketNoDelay">1</property>-->
 		<!--<property name="frontSocketNoDelay">1</property>-->
 		<!--<property name="processorExecutor">16</property>-->
 		<!--
+      serverPort 链接端口设置。managerPort 管理端口
 			<property name="serverPort">8066</property> <property name="managerPort">9066</property> 
 			<property name="idleTimeout">300000</property> <property name="bindIp">0.0.0.0</property>
 			<property name="dataNodeIdleCheckPeriod">300000</property> 5 * 60 * 1000L; //连接空闲检查
@@ -91,9 +95,9 @@
 	<!--这些配置情况下对于127.0.0.1都能以root账户登录-->
 	<!--
 	<firewall>
-	   <whitehost>
+	   <whitehost> 白名单配置，那些ip地址，能够以什么样用户名来访问
 	      <host host="1*7.0.0.*" user="root"/>
-	   </whitehost>
+	   </whitehost> 黑名单配置 check="false" 不检查，true 检查
        <blacklist check="false">
        </blacklist>
 	</firewall>
@@ -113,11 +117,23 @@
 		</privileges>		
 		 -->
 	</user>
+  <!-- mycat 的访问用户密码等配置 -->
 
-	<user name="user">
+	<user name="user" defaultAccount="true">
 		<property name="password">root</property>
 		<property name="schemas">ITCAST</property>
 		<!-- <property name="readOnly">true</property> -->
+    <!-- <property name="benchmark">1000</property> 前端链接到mycat 的链接数，不设置-不限制链接数-->
+    <!-- <property name="useDecrpt">true</property> 密码是否需要加密，例如密码root，当你输入明文root那么是无法登录的。密文是通过mycat 一个jar 包提供的指令生产的-->
+    <privileges check="false">
+    <!-- 是否权限检查
+    <schema name="TESTDB" dml="0110"> 库级别的权限配置 dml取值范围(0000-1111)，0-表示关，1-表示卡 代表权限信息, 对应的操作是IUSD(增，改，查，删)
+    如 0110 表示只有改和查 的权限
+      <table name="tb01" dml="0000"></table> 表级别的权限配置
+    </schema>
+     -->
+    
+    </privileges>
 	</user>
 
 </mycat:server>

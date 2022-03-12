@@ -9,9 +9,12 @@
 	under the License. -->
 <!DOCTYPE mycat:rule SYSTEM "rule.dtd">
 <mycat:rule xmlns:mycat="http://io.mycat/">
+<!-- 分片规则配置，name需要保证唯一 -->
 	<tableRule name="rule1">
 		<rule>
+    <!-- 配置根据哪个列计算 -->
 			<columns>id</columns>
+      <!-- 使用的算法名字 -->
 			<algorithm>func1</algorithm>
 		</rule>
 	</tableRule>
@@ -106,6 +109,7 @@
 		<property name="count">3</property>
 	</function>
 
+<!-- 分片算法定义 -->
 	<function name="func1" class="io.mycat.route.function.PartitionByLong">
 		<property name="partitionCount">8</property>
 		<property name="partitionLength">128</property>

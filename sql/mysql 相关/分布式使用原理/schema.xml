@@ -3,8 +3,9 @@
 <mycat:schema xmlns:mycat="http://io.mycat/">
 
 	<schema name="ITCAST" checkSQLschema="true" sqlMaxLimit="100">
-  <!-- 逻辑库库名，下面有一个逻辑分片，这些表分别再dataNode 中 -->
+  <!-- 逻辑库库名(理解数据库中的库)，下面有一个逻辑分片，这些表分别再dataNode 中，可以配置多个schema，sqlMaxLimit sql 语句的检索返回数据上线，这里配置最多返回100条数据 -->
 		<table name="TB_TEST" dataNode="dn1,dn2,dn3" rule="auto-sharding-long" />
+  <!-- 逻辑表(表明)， rule 分片规则名称 -->
 	</schema>
 
 <!-- 三个dataNode 定义，每一个dataNode 都位于dataHost(数据库服务器)中，且每一个服务器都有db1的数据库 -->
@@ -13,12 +14,22 @@
 	<dataNode name="dn3" dataHost="localhost3" database="db1" /> 
   <!-- 在数据库服务器localhost1 中有一个名为 db1的数据库, -->
 
-<!-- 每一个数据库服务器的链接信息 -->
+<!-- 
+    数据节点，逻辑分片，每一个数据库服务器的链接信息，max/MinCon 最大最新连接池
+    balance 负载均衡配置： 重点
+    writeType 写操作分发方式
+    dbType 底层数据库类型
+    dbDriver 数据库驱动，native： 基于底层二进制协议
+    switchType： 数据库切换： 重点
+ -->
 	<dataHost name="localhost1" maxCon="1000" minCon="10" balance="0"
 			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+    <!-- mycat中的心跳，检测后端mysql是否还活着 -->
 		<heartbeat>select user()</heartbeat>
-    <!-- mycat中的心跳，检测mysql是否还活着 -->
+    <!-- 配置写主机 -->
 		<writeHost host="hostM1" url="localhost:3306" user="root" password="root"></writeHost>
+    <!-- 配置读主机 -->
+    <readHost></readHost>
 	</dataHost>
 
   	<dataHost name="localhost2" maxCon="1000" minCon="10" balance="0"

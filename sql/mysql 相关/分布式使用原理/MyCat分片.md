@@ -241,9 +241,20 @@
 create database partition_db default character set utf8mb4;
 ```
 
-分片规则
+更新`server.xml`
+
+```xml
+<user name="root" defaultAccount="true">
+    <property name="password">root</property>
+    <property name="schemas">PARTITION_DB</property>
+</user>
+```
 
 ##### 取模
+
+对指定字段取模，根据取模的结果，决定将数据存储在那个`mysql`
+
+在水平拆分实验中使用的就是 `mod-long` 的分片规则
 
 ```xml
 <tableRule name="mod-long">
@@ -262,7 +273,7 @@ create database partition_db default character set utf8mb4;
 
 ##### 范围分片
 
-> 根据指定列值大小，分到哪个 dataNode 中
+> 根据指定列值大小及其配置的范围，决定分到哪个 dataNode 中
 
 ```xml
 <tableRule name="auto-sharding-long">
@@ -284,9 +295,50 @@ create database partition_db default character set utf8mb4;
 0-500M=0      # 第一个分片id取值范围
 500M-1000M=1  # 第二个分片id取值范围
 1000M-1500M=2 # 第三个分片id取值范围
+# 插入的数据的id超过这里配置的值会报错，当然这个问题也是可以解决的，就是  <property name="defaultNode">0</property> 配置
+
+# 测试配置
+<schema name="PARTITION_DB" checkSQLschema="true" sqlMaxLimit="100">
+    <table name="tb_log" dataNode="dn1,dn2,dn3" rule="auto-sharding-long"></table>
+</schema>
+
+# <property name="defaultNode">0</property> 的配置，默认就有
+```
+
+`mycat` 中现在已经有了逻辑表，但还需要定义表结构
+
+```mysql
+CREATE TABLE `tb_log` (
+  id bigint(20) NOT NULL COMMENT 'ID',
+  operateuser varchar(200) DEFAULT NULL COMMENT '姓名',
+  operation int(2) DEFAULT NULL COMMENT '1: insert, 2: delete, 3: update , 4: select',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 查看3个mysql 数据库，就可以看到创建的表了
+
+insert into tb_log (id,operateuser ,operation) values(1,'Tom',1);
+insert into tb_log (id,operateuser ,operation) values(2,'Cat',2);
+insert into tb_log (id,operateuser ,operation) values(3,'Rose',3);
+insert into tb_log (id,operateuser ,operation) values(4,'Coco',2);
+insert into tb_log (id,operateuser ,operation) values(5,'Lily',1);
+
+-- 插入的数据均在第一个节点mysql 库中
+-- 继续插入数据
+insert into tb_log (id,operateuser ,operation) values(5000001,'Lily',1);
+-- 按照分片规则，这条数据是插入到第二个库中了，查看第二个库，确实是如此
+
+insert into tb_log (id,operateuser ,operation) values(10000001,'Lily',1);
+-- 按照分片规则，这条数据是插入到第三个库中了，查看第三个库，确实是如此
+
+-- 插入超过配置文件范围的数据，插入默认mysql 数据库，也就是第一个库
+insert into tb_log (id,operateuser ,operation) values(15000001,'Lily',1);
+-- 且插入到第一个mysql 库了
 ```
 
 ##### 枚举分片
+
+> 通过在配置文件中配置可能的枚举值，指定数据分布到不同的数据节点上，本规则适用于按照省份，或者状态拆分数据
 
 ```xml
 <tableRule name="sharding-by-intfile">
@@ -296,13 +348,13 @@ create database partition_db default character set utf8mb4;
     </rule>
 </tableRule>
 
-<function name="hash-int"
-          class="io.mycat.route.function.PartitionByFileMap">
+<function name="hash-int" class="io.mycat.route.function.PartitionByFileMap">
     <property name="mapFile">partition-hash-int.txt</property>
     <property name="type">0</property>
     <property name="defaultNode">0</property>
 </function>
 <!-- 
+	type： 字段类型
 	partition-hash-int.txt 写着枚举字典 key-value
 	key 就是表中列 status 的取值，value 就是status映射到的对应的枚举值，
 	10000=0 status=10000 分到第一个dataNode
@@ -312,7 +364,66 @@ create database partition_db default character set utf8mb4;
 10010=1
 ```
 
+配置`xml` 文件
+
+```xml
+<!- 定义个按照业务名字的分片规则，里面的内容是可以和其他的重复的->
+<tableRule name="sharding-by-enum-status">
+    <rule>
+        <columns>status</columns>
+        <algorithm>hash-int</algorithm>
+    </rule>
+</tableRule>
+
+<!-- 添加逻辑表tb_user 以及指定枚举分片逻辑 -->
+<schema name="PARTITION_DB" checkSQLschema="true" sqlMaxLimit="100">
+    <table name="tb_log" dataNode="dn1,dn2,dn3" rule="auto-sharding-long"></table>
+    <table name="tb_user" dataNode="dn1,dn2,dn3" rule="sharding-by-enum-status"></table>
+</schema>
+
+<tableRule name="sharding-by-intfile">
+    <rule>
+        <columns>sharding_id</columns>
+        <algorithm>hash-int</algorithm>
+    </rule>
+</tableRule>
+
+<function name="hash-int" class="io.mycat.route.function.PartitionByFileMap">
+    <property name="mapFile">partition-hash-int.txt</property>
+</function>
+
+<!--
+	修改 partition-hash-int.txt
+	1=0  status=1 第一个mysql
+	2=1  status=2 第二个mysql
+	3=2  status=3 第三个mysql
+-->
+```
+
+准备数据
+
+```mysql
+CREATE TABLE `tb_user` (
+  id bigint(20) NOT NULL COMMENT 'ID',
+  username varchar(200) DEFAULT NULL COMMENT '姓名',
+  status int(2) DEFAULT '1' COMMENT '1: 未启用, 2: 已启用, 3: 已关闭',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+insert into tb_user (id,username ,status) values(1,'Tom',1);
+insert into tb_user (id,username ,status) values(2,'Cat',2);
+insert into tb_user (id,username ,status) values(3,'Rose',3);
+insert into tb_user (id,username ,status) values(4,'Coco',2);
+insert into tb_user (id,username ,status) values(5,'Lily',1);
+
+-- 插入到默认第一个mysql
+insert into tb_user (id,username ,status) values(5,'Lily',4);
+```
+
 ##### 范围求模算法
+
+先进行范围分片，计算出范围组，然后再组内进行求模
 
 ![a](./pics/mycat15.png)
 
@@ -334,13 +445,113 @@ create database partition_db default character set utf8mb4;
 
 <function name="rang-mod" class="io.mycat.route.function.PartitionByRangeMod">
     <property name="mapFile">partition-range-mod.txt</property>
+    <property name="defaultNode">0</property>
 </function>
 
 # range start-end ,data node group size
+# 0-200M 数据范围有5个节点, 5个点如何划分，根据取模算法
 0-200M=5
+# 200000001-40000000 数据范围有1个节点
 200M1-400M=1
 400M1-600M=4
 600M1-800M=4
 800M1-1000M=6
 ```
 
+配置
+
+```xml
+<schema name="PARTITION_DB" checkSQLschema="true" sqlMaxLimit="100">
+    <table name="tb_stu" dataNode="dn1,dn2,dn3" rule="auto-sharding-rang-mod"></table>
+</schema>
+
+# range start-end ,data node group size
+0-500M=1
+500M1-2000M=2
+```
+
+测试数据
+
+```mysql
+
+    CREATE TABLE `tb_stu` (
+        id bigint(20) NOT NULL COMMENT 'ID',
+        username varchar(200) DEFAULT NULL COMMENT '姓名',
+        status int(2) DEFAULT '1' COMMENT '1: 未启用, 2: 已启用, 3: 已关闭',
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+    insert into tb_stu (id,username ,status) values(1,'Tom',1);
+    insert into tb_stu (id,username ,status) values(2,'Cat',2);
+    insert into tb_stu (id,username ,status) values(3,'Rose',3);
+    insert into tb_stu (id,username ,status) values(4,'Coco',2);
+    insert into tb_stu (id,username ,status) values(5,'Lily',1);
+	-- 前面的均到第一个mysql
+	
+	-- 到第二个库
+    insert into tb_stu (id,username ,status) values(5000001,'Roce',1);
+    -- 到第三个库
+    insert into tb_stu (id,username ,status) values(5000002,'Jexi',2);
+    -- 到第二个库
+    insert into tb_stu (id,username ,status) values(5000003,'Mini',1);
+```
+
+##### 固定分片-哈希算法
+
+```xml
+<tableRule name="sharding-by-long-hash">
+    <rule>
+        <columns>id</columns>
+        <algorithm>func1</algorithm>
+    </rule>
+</tableRule>
+
+<function name="func1" class="org.opencloudb.route.function.PartitionByLong">
+    <property name="partitionCount">2,1</property> 	分片个数列表
+    <property name="partitionLength">256,512</property> 分片范围列表
+</function>
+在示例中配置的分片策略，希望将数据水平分成3份，前两份各占 25%，第三份占 50%。
+```
+
+约束 : 
+
+1). 分片长度 : 默认最大2^10 , 为 1024 ;
+
+2). count, length的数组长度必须是一致的 ;
+
+3). 两组数据的对应情况: (partitionCount[0]partitionLength[0])=(partitionCount[1]partitionLength[1])
+
+以上分为三个分区:0-255,256-511,512-1023（不能超过 1024）
+
+---
+
+##### 取模范围算法
+
+先进行取模，然后根据取模值所属范围进行分片
+
+> 可以自主决定取模后数据的节点分布
+>
+> dataNode 是事先建好的，需要扩展比较麻烦
+
+
+
+##### 日期分片
+
+1. 配置`schema.xml`
+
+   ```xml
+   <tableRule name="sharding-by-date">
+       <rule>
+           <columns>create_time</columns>
+           <algorithm>sharding-by-date</algorithm>
+       </rule>
+   </tableRule>
+   
+   <function name="sharding-by-date" class="io.mycat.route.function.PartitionByDate">
+   	<property name="dateFormat">yyyy-MM-dd</property>
+   	<property name="sBeginDate">2020-01-01</property> 开始时间
+   	<property name="sEndDate">2020-12-31</property> 结束时间
+       <property name="sPartionDay">10</property>
+   </function>
+   ```

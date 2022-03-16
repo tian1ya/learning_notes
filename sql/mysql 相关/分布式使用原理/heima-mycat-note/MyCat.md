@@ -1740,7 +1740,7 @@ autopartition-range-mod.txt 配置格式 :
 partition-pattern.txt 配置如下: 
 
 ```
-0-32=0
+0-32=0 # id 列取96为底数取模，取结果在0-32范围内数据分片到第一个mysql
 33-64=1
 65-96=2
 ```
@@ -2156,7 +2156,7 @@ INSERT INTO tb_order (id,money,content) VALUES(212132, 100 , UUID());
 | sEndDate    | 结束日期，如果配置了结束日期，则代码数据到达了这个日期的分片后，会重复从开始分片插入 |
 | sPartionDay | 分区天数，默认值 10 ，从开始日期算起，每个10天一个分区       |
 
-注意：配置规则的表的 dataNode 的分片，必须和分片规则数量一致，例如 2020-01-01 到 2020-12-31 ，每10天一个分片，一共需要37个分片。
+*注意：配置规则的表的 dataNode 的分片，必须和分片规则数量一致，例如 2020-01-01 到 2020-12-31 ，每10天一个分片，一共需要37个分片。*
 
 
 
@@ -2195,7 +2195,7 @@ INSERT INTO tb_order (id,money,content) VALUES(212132, 100 , UUID());
 
 #### 4.3.13 自然月分片算法
 
-使用场景为按照月份列分区, 每个自然月为一个分片, 配置如下: 
+使用场景为按照月份列分区, **每个自然月为一个分片**, 配置如下: 
 
 ```xml
 <tableRule name="sharding-by-month">
@@ -2245,7 +2245,7 @@ INSERT INTO tb_order (id,money,content) VALUES(212132, 100 , UUID());
 	<property name="dateFormat">yyyy-MM-dd HH:mm:ss</property>
 	<property name="sBeginDate">2020-01-01 00:00:00</property>
 	<property name="groupPartionSize">6</property>
-    <property name="sPartionDay">10</property>
+    <property name="sPartionDay">10</property> 10 天为一组，总共有6组，持续
 </function>
 ```
 

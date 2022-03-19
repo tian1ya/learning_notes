@@ -141,8 +141,10 @@ cp zoo.sample.cfg zoo.cfg
    grant replication slave,replication client on *.* to 'slave'@'%';
    
    # 从容器设置master
-   change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3306, master_log_file='mall-mysql-bin.000003', master_log_pos=617, master_connect_retry=30;
+   change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3306, master_log_file='mall-mysql-bin.000004	', master_log_pos=154, master_connect_retry=30;
    
+   # 查看用户
+   select user,host from mysql.user;
    ```
 
    ![a](./pics/mycat21.png)
@@ -278,3 +280,267 @@ networks:
 
 
 
+##### mycat 一主一从读写分离
+
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE mycat:schema SYSTEM "schema.dtd">
+<mycat:schema xmlns:mycat="http://io.mycat/">
+
+	<schema name="ITCAST" checkSQLschema="true" sqlMaxLimit="100">
+    <table name="user" dataNode="dn1" primaryKey="id"></table>
+	</schema>
+
+	<dataNode name="dn1" dataHost="localhost1" database="db01" /> 
+
+	<dataHost name="localhost1" maxCon="1000" minCon="10" balance="0"
+			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+		<heartbeat>select user()</heartbeat>
+		<writeHost host="hostM1" url="localhost:3306" user="root" password="root">
+      <readHost host="host1" url="localhost:3307" user="root" password="root"></readHost>
+    </writeHost>
+	</dataHost>
+
+</mycat:schema>
+```
+
+新建库以及表
+
+```mysql
+create database db01;
+
+user db01;
+
+create table user(
+	id int(11) not null auto_increment,
+	name varchar(50) not null,
+	sex varchar(1),
+	primary key (id)
+)engine=innodb default charset=utf8;
+
+insert into user(id,name,sex) values(null,'Tom','1');
+insert into user(id,name,sex) values(null,'Trigger','0');
+insert into user(id,name,sex) values(null,'Dawn','1');
+```
+
+然后在`mycat` 上执行`sql` 查询，通过将`mysql` 的日志配置`./conf/log4j2.xml` 级别调整到`debug` 就能看到结果
+
+![a](./pics/mycat23.png)
+
+![a](./pics/mycat24.png)
+
+从日志中看到的依然是访问了`master`,这里没有发生读写分离是因为负载均衡配置 `balance="0"` 的配置。
+
+* `balance=0`
+
+  > 不开启读写分离，所有操作均发到`writeHost` 中
+
+* `balance=1`
+
+  > 全部的`readHost` 和 `stand by writeHost`(备用writeHost) 都参与`select` 语句的负载均衡，就是采用双主双从的模型，
+
+* `balance=2`
+
+  > 所有的读写操作都随机在`writeHost，readHost` 上分发
+
+* `balance=3`
+
+  > 所有的读请求随机分发到`writeHost` 对应的`readHost` 上执行，`writeHost` 不负担压力，
+
+将配置文件`balance` 的值修改为3之后，再测试
+
+![a](./pics/mycat25.png)
+
+日志中`select` 语句是在从节点执行，写节点在主节点中完成。
+
+*当主库挂掉之后，从库就不能在工作了*
+
+##### mycat 双主双从读写分离
+
+![a](./pics/mycat26.png)
+
+`master1` 和 `master2` 是互为备份的，正常情况下，`master1` 负责写，`slave1` 负责读，当`master1` 挂掉之后，`slave1` 也是不能工作的。这个时候`master2` 作为写节点，`slave2` 作为从节点，继续工作。
+
+1. 配置`my.conf` 主要是配置`server-id` 保证4台`mysql` 不重复
+
+2. 启动镜像
+
+   ```shell
+   # master1
+   docker run -p 3306:3306 --name mysql-master1 \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master/log:/var/log/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master/data:/var/lib/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master/conf:/etc/mysql \
+   -e MYSQL_ROOT_PASSWORD=root \
+   -d mysql:5.7.25
+   # slave1
+   docker run -p 3307:3306 --name mysql-slave1 \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave/log:/var/log/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave/data2:/var/lib/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave/conf:/etc/mysql \
+   -e MYSQL_ROOT_PASSWORD=root \
+   -d mysql:5.7.25
+   
+   # master2
+   docker run -p 3308:3306 --name mysql-master2 \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master2/log:/var/log/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master2/data2:/var/lib/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/master2/conf:/etc/mysql \
+   -e MYSQL_ROOT_PASSWORD=root \
+   -d mysql:5.7.25
+   # slave2
+   docker run -p 3309:3306 --name mysql-slave2 \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave2/log:/var/log/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave2/data2:/var/lib/mysql \
+   -v /home/local/docker/mysql01/mysql-cluster/docker02/slave2/conf:/etc/mysql \
+   -e MYSQL_ROOT_PASSWORD=root \
+   -d mysql:5.7.25
+   ```
+
+   3. 主机需要关闭防火墙
+
+   4. 登记两台主机`master1` 和 `master2` 并创建账户并授权`slave`
+
+      ```shell
+      # 进入到主容器的mysql 命令中
+      # 创建主从复制binlog 文件用户，赋予权限
+      create user 'slave'@'%' identified by 'slave';
+      grant replication slave,replication client on *.* to 'slave'@'%';
+      flush privileges;
+      
+      # slave1 从容器设置 master1
+      change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3306, master_log_file='mysql-bin.000003', master_log_pos=769, master_connect_retry=30;
+      
+      # slave2 从容器设置 master2
+      change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3308, master_log_file='mysql-slave-slave-bin.000003', master_log_pos=769, master_connect_retry=30;
+      
+      # 开启复制功能
+      start slave;
+      # 查看2个IO 的状态是否是 Yes
+      show slave status\G;
+       
+      # 查看用户
+      select user,host from mysql.user;
+      ```
+
+   5. 测试
+
+      ```mysql
+      create database db01;
+      
+      use db01;
+      
+      create table user(
+      	id int(11) not null auto_increment,
+      	name varchar(50) not null,
+      	sex varchar(1),
+      	primary key (id)
+      )engine=innodb default charset=utf8;
+      
+      insert into user(id,name,sex) values(null,'Tom','1');
+      insert into user(id,name,sex) values(null,'Trigger','0');
+      insert into user(id,name,sex) values(null,'Dawn','1');
+      ```
+
+   6. 2个master 之间的互备
+
+      ```mysql
+      # master1 执行
+      change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3308, master_log_file='mysql-slave-slave-bin.000003', master_log_pos=1550, master_connect_retry=30;
+      
+      start slave;
+      show slave status;
+      
+      # master2 执行
+      change master to master_host='192.168.56.100', master_user='slave', master_password='slave', master_port=3306, master_log_file='mysql-bin.000003', master_log_pos=1550, master_connect_retry=30;
+      
+      start slave;
+      show slave status;
+      
+      ```
+
+   7. 测试master 之间的复制功能
+
+      ```mysql
+      # 在 master1 中执行，然后再slave1，master2 slave2 中均可以看到插入的数据
+      create database db02;
+      
+      use db02;
+      
+      create table user(
+      	id int(11) not null auto_increment,
+      	name varchar(50) not null,
+      	sex varchar(1),
+      	primary key (id)
+      )engine=innodb default charset=utf8;
+      
+      insert into user(id,name,sex) values(null,'Tom','1');
+      insert into user(id,name,sex) values(null,'Trigger','0');
+      insert into user(id,name,sex) values(null,'Dawn','1');
+      
+      # 在 master2 中执行，然后再slave2，master1 slave1 中均可以看到插入的数据
+      create database db03;
+      
+      use db03;
+      
+      create table user(
+      	id int(11) not null auto_increment,
+      	name varchar(50) not null,
+      	sex varchar(1),
+      	primary key (id)
+      )engine=innodb default charset=utf8;
+      
+      insert into user(id,name,sex) values(null,'Tom','1');
+      insert into user(id,name,sex) values(null,'Trigger','0');
+      insert into user(id,name,sex) values(null,'Dawn','1');
+      ```
+
+   8. 配置读写分离
+
+      ```xml
+      <?xml version="1.0"?>
+      <!DOCTYPE mycat:schema SYSTEM "schema.dtd">
+      <mycat:schema xmlns:mycat="http://io.mycat/">
+      
+      	<schema name="ITCAST" checkSQLschema="true" sqlMaxLimit="100">
+          <table name="user" dataNode="dn1" primaryKey="id"></table>
+      	</schema>
+      
+      	<dataNode name="dn1" dataHost="localhost1" database="db01" /> 
+      
+          <!-- 2个主机，从机-->
+      	<dataHost name="localhost1" maxCon="1000" minCon="10" balance="1"
+      			  writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+      		<heartbeat>select user()</heartbeat>
+      		<writeHost host="hostM1" url="localhost:3306" user="root" password="root">
+            <readHost host="host1" url="localhost:3307" user="root" password="root"></readHost>
+          </writeHost>
+      
+          <writeHost host="hostM2" url="localhost:3308" user="root" password="root">
+            <readHost host="host2" url="localhost:3309" user="root" password="root"></readHost>
+          </writeHost>
+      
+      	</dataHost>
+      
+      </mycat:schema>
+      ```
+
+      ​	`balance="1"` 备用主节点的write和dead节点，以及主节点的read 节点都会读，主节点的write 不会读。也就是		
+
+      ​	`3307,3308,3309` 三个mysql 都会读，但是`3306` mysql 则不会。但是当写入操作则只会操作3306.
+
+      ​	`switchType="1"` 表示第一个主机挂掉，会自动切换到第二个，`="0"` 表示不会自动切换
+
+      9. 测试将现在的主节点挂掉，也就是3306这个机器
+
+         ```shell
+         docker stop 6b1
+         ```
+
+         ![a](./pics/mycat27.png)
+
+      ![a](./pics/mycat28.png)
+
+      刚开始写会报错，后面在插入就可以插入了。
+
+      

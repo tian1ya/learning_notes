@@ -3173,6 +3173,7 @@ HAProxy 是一个开源的、高性能的基于TCP(第四层)和HTTP(第七层)�
 **keepalived介绍:**
 
 Keepalived是一种基于VRRP协议来实现的高可用方案,可以利用其来避免单点故障。 通常有两台甚至多台服务器运行Keepalived，一台为主服务器(Master), 其他为备份服务器, 但是对外表现为一个虚拟IP(VIP), 主服务器会发送特定的消息给备份服务器, 当备份服务器接收不到这个消息时, 即认为主服务器宕机, 备份服务器就会接管虚拟IP, 继续提供服务, 从而保证了整个集群的高可用。
+
 VRRP(虚拟路由冗余协议-Virtual Router Redundancy Protocol)协议是用于实现路由器冗余的协议，VRRP 协议将两台或多台路由器设备虚拟成一个设备，对外提供虚拟路由器 IP(一个或多个)，而在路由器组内部，如果实际拥有这个对外 IP 的路由器如果工作正常的话就是 MASTER，或者是通过算法选举产生。MASTER 实现针对虚拟路由器 IP 的各种网络功能，如 ARP 请求，ICMP，以及数据的转发等；其他设备不拥有该虚拟 IP，状态是 BACKUP，除了接收 MASTER 的VRRP 状态通告信息外，不执行对外的网络功能。当主机失效时，BACKUP 将接管原先 MASTER 的网络功能。VRRP 协议使用多播数据来传输 VRRP 数据，VRRP 数据使用特殊的虚拟源 MAC 地址发送数据而不是自身网卡的 MAC 地址，VRRP 运行时只有 MASTER 路由器定时发送 VRRP 通告信息，表示 MASTER 工作正常以及虚拟路由器 IP(组)，BACKUP 只接收 VRRP 数据，不发送数据，如果一定时间内没有接收到 MASTER 的通告信息，各 BACKUP 将宣告自己成为 MASTER，发送通告信息，重新进行 MASTER 选举状态。
 
 
@@ -3670,47 +3671,7 @@ cp /usr/local/keepalived/sbin/keepalived /usr/sbin/
 Master: 
 
 ```
-global_defs {
-	notification_email {
-		javadct@163.com
-	}
-	notification_email_from keepalived@showjoy.com
-	smtp_server 127.0.0.1
-	smtp_connect_timeout 30
-	router_id haproxy01
-	vrrp_skip_check_adv_addr
-	vrrp_garp_interval 0
-	vrrp_gna_interval 0
-}
 
-vrrp_script chk_haproxy {
-	script "/etc/keepalived/haproxy_check.sh"
-	interval 2
-	weight 2
-}
-
-vrrp_instance VI_1 {
-	#主机配MASTER，备机配BACKUP
-	state MASTER
-	#所在机器网卡
-	interface eth1
-	virtual_router_id 51
-	#数值越大优先级越高
-	priority 120
-	advert_int 1
-	authentication {
-		auth_type PASS
-		auth_pass 1111
-	}
-	## 将 track_script 块加入 instance 配置块
-    track_script {
-    	chk_haproxy ## 检查 HAProxy 服务是否存活
-    }
-	virtual_ipaddress {
-		#虚拟IP
-		192.168.192.200
-	}
-}
 ```
 
 

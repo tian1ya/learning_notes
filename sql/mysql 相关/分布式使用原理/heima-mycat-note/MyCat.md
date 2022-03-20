@@ -171,20 +171,47 @@ C). 解压 mysql 的安装包
 	
 	tar -xvf MySQL-5.6.22-1.el6.i686.rpm-bundle.tar -C /root/mysql
 	
-D). 安装依赖包 
+D). 安装依赖包  在 mysql 目录下执行
 	
 	yum -y install libaio.so.1 libgcc_s.so.1 libstdc++.so.6 libncurses.so.5 --setopt=protected_multilib=false
 	
 	yum  update libstdc++-4.4.7-4.el6.x86_64
 	
-E). 安装 mysql-client
+E). 安装 mysql-client 在 mysql 目录下执行
 	
 	rpm -ivh MySQL-client-5.6.22-1.el6.i686.rpm
 	
 F). 安装 mysql-server
 	
 	rpm -ivh MySQL-server-5.6.22-1.el6.i686.rpm
+	安装过程中和centos 的包 rpm -qa|grep -i mariadb 有一些冲突，通过这个命令找到mariadb，然后将其卸载
+	rpm -e mariadb-libs-5.5.68-1.el7.x86_64 --nodeps， 然后再安装 MYSQL-servier 就可以了
 	
+	
+# 其他安装
+wget -i -c http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+yum -y install mysql57-community-release-el7-10.noarch.rpm
+yum -y install mysql-community-server
+
+找初始化密码
+grep "password" /var/log/mysqld.log
+
+然后发现没有
+rm -rf /var/lib/mysql
+systemctl restart mysqld
+grep 'temporary password' /var/log/mysqld.log 就有了
+
+修改密码
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Root*123';
+
+安装目录
+    如果采用RPM包安装，安装路径应在/usr/share/mysql目录
+    mysqldump文件位置：/usr/bin/mysqldump
+    mysqli配置文件:
+    /etc/my.cnf或/usr/share/mysql/my.cnf
+    mysql数据目录在/var/lib/mysql目录下
+    如果采用源代码安装，一般默认安装在/usr/local/mysql目录下
+    日志 /var/log/mysqld
 ```
 
 

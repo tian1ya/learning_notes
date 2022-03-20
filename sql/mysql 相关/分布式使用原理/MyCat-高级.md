@@ -911,4 +911,9 @@ insert into user(id,name,sex) values(null,'Dawn','1');
       fi
       ```
 
-      
+      ---
+
+#### mycat 集群搭建-裸机
+
+##### mysql 安装
+

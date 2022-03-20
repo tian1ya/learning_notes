@@ -915,5 +915,378 @@ insert into user(id,name,sex) values(null,'Dawn','1');
 
 #### mycat 集群搭建-裸机
 
-##### mysql 安装
+##### mysql 安装-主从复制
+
+```shell
+# 其他安装
+wget -i -c http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
+yum -y install mysql57-community-release-el7-10.noarch.rpm
+yum -y install mysql-community-server
+
+找初始化密码
+grep "password" /var/log/mysqld.log
+
+然后发现没有
+rm -rf /var/lib/mysql
+systemctl restart mysqld
+grep 'temporary password' /var/log/mysqld.log 就有了
+
+修改密码
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Root*123';
+
+# 远程访问权限
+grant all privileges on *.* to 'root'@'%' identified by 'Root*123'
+flush privileges;
+
+安装目录
+    如果采用RPM包安装，安装路径应在/usr/share/mysql目录
+    mysqldump文件位置：/usr/bin/mysqldump
+    mysqli配置文件:
+    /etc/my.cnf或/usr/share/mysql/my.cnf
+    mysql数据目录在/var/lib/mysql目录下
+    如果采用源代码安装，一般默认安装在/usr/local/mysql目录下
+    日志 /var/log/mysqld
+    
+# mysql 一些指令
+systemctl status  mysqld.service
+systemctl start  mysqld.service
+systemctl stop  mysqld.service
+
+# 主从复制用户
+# 100 机器 mysql 创建用户
+create user 'slave'@'%' identified by 'Slave*123';
+grant replication slave,replication client on *.* to 'slave'@'%';
+flush privileges;
+
+进行my.cnf 的配置
+show master status;
++------------------+----------+--------------+------------------+-------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++------------------+----------+--------------+------------------+-------------------+
+| mysql-bin.000001 |      154 |              |                  |                   |
++------------------+----------+--------------+------------------+-------------------+
+
+# 110 机器 mysql  master1
+change master to master_host='192.168.56.100', master_user='slave', master_password='Slave*123', master_port=3306, master_log_file='mysql-bin.000001', master_log_pos=523, master_connect_retry=30;
+# 所有配置均正确，但是刚开始一直从一直无法链接到主，等一会然后就好了
+
+stop SLAVE io_thread;
+
+start slave;
+show slave status\G;
+```
+
+master my.cnf 配置
+
+```shell
+# For advice on how to change settings please see
+# http://dev.mysql.com/doc/refman/5.7/en/server-configuration-defaults.html
+
+[mysqld]
+#
+# Remove leading # and set to the amount of RAM for the most important data
+# cache in MySQL. Start at 70% of total RAM for dedicated server, else 10%.
+# innodb_buffer_pool_size = 128M
+server-id=1
+# Remove leading # to turn on a very important data integrity option: logging
+# changes to the binary log between backups.
+log_bin=mysql-bin
+#
+# Remove leading # to set options mainly useful for reporting servers.
+# The server defaults are faster for transactions and fast SELECTs.
+# Adjust sizes as needed, experiment to find the optimal values.
+# join_buffer_size = 128M
+# sort_buffer_size = 2M
+# read_rnd_buffer_size = 2M
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+
+# Disabling symbolic-links is recommended to prevent assorted security risks
+symbolic-links=0
+
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+```
+
+slave my.cnf 配置
+
+```shell
+# For advice on how to change settings please see
+# http://dev.mysql.com/doc/refman/5.7/en/server-configuration-defaults.html
+
+[mysqld]
+server-id=2
+# Remove leading # and set to the amount of RAM for the most important data
+# cache in MySQL. Start at 70% of total RAM for dedicated server, else 10%.
+# innodb_buffer_pool_size = 128M
+#
+# Remove leading # to turn on a very important data integrity option: logging
+# changes to the binary log between backups.
+log_bin=mysql-bin
+#
+# Remove leading # to set options mainly useful for reporting servers.
+# The server defaults are faster for transactions and fast SELECTs.
+# Adjust sizes as needed, experiment to find the optimal values.
+# join_buffer_size = 128M
+# sort_buffer_size = 2M
+# read_rnd_buffer_size = 2M
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+relay-log=mysql-relay-log
+# Disabling symbolic-links is recommended to prevent assorted security risks
+symbolic-links=0
+
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+```
+
+##### mycat 安装配置
+
+```xml
+<schema name="ITCAST" checkSQLschema="true" sqlMaxLimit="100">
+    <table name="user" dataNode="dn1" primaryKey="id"></table>
+</schema>
+
+<dataNode name="dn1" dataHost="localhost1" database="db01" /> 
+
+<dataHost name="localhost1" maxCon="1000" minCon="10" balance="1"
+          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+    <heartbeat>select user()</heartbeat>
+    <writeHost host="hostM1" url="192.168.56.100:3306" user="root" password="Root*123">
+        <readHost host="hostM1" url="192.168.56.110:3306" user="root" password="Root*123"></readHost>
+    </writeHost>
+</dataHost>
+```
+
+链接个mycat 的`8066`端口，可以访问，测试
+
+```mysql
+create database db01;
+
+use db01;
+
+create table user(
+	id int(11) not null auto_increment,
+	name varchar(50) not null,
+	sex varchar(1),
+	primary key (id)
+)engine=innodb default charset=utf8;
+
+insert into user(id,name,sex) values(null,'Tom','1');
+insert into user(id,name,sex) values(null,'Trigger','0');
+insert into user(id,name,sex) values(null,'Dawn','1');
+```
+
+在其中一个`mycat` 中执行创建`user` 以及插入数据，在另外一台`mycat` 中也可以看到数据，并且在两台`mysql` 中也可以看到数据。
+
+##### HAProxy
+
+```shell
+# 查看操作系统内核版本
+uname -r
+3.10.0-1160.el7.x86_64
+
+# 编译 haproxy TARGET=linux3100 指定内核版本
+make TARGET=linux3100 PREFIX=/home/local/haproxy/haproxy-1.5.16 ARCH=x86_64
+
+# 安装
+make install PREFIX=/home/local/haproxy/haproxy-1.5.16
+
+# 创建目录
+mkdir -p /usr/data/haproxy
+
+# 创建 haproxy 配置目录
+vi /home/local/haproxy/haproxy-1.5.16/haproxy.conf
+
+# 目录内容
+global
+	log 127.0.0.1 local0 
+	maxconn 4096 
+	chroot /usr/local/haproxy 
+	pidfile /usr/data/haproxy/haproxy.pid
+	uid 99
+	gid 99
+	daemon
+	node mysql-haproxy-01
+	description mysql-haproxy-01
+defaults
+	log global
+	mode tcp
+	option abortonclose
+	option redispatch
+	retries 3
+	maxconn 2000
+	timeout connect 50000ms
+	timeout client 50000ms
+	timeout server 50000ms
+# 重要配置，配置后端代理对象， 48066 haproxy 对外暴露端口
+listen proxy_status
+	bind 0.0.0.0:48066
+		mode tcp
+		balance roundrobin
+		server mycat_1 192.168.56.100:8066 check
+		server mycat_2 192.168.56.110:8066 check
+# 8888管理 端口，管理url 账号密码
+frontend admin_stats
+	bind 0.0.0.0:8888
+		mode http
+		stats enable
+		option httplog
+		maxconn 10
+		stats refresh 30s
+		stats uri /admin
+		stats auth admin:123123
+		stats hide-version
+		stats admin if TRUE
+# 注意在安装两台的时候，node 和 description 配置需要不一样
+
+# 启动
+/home/local/haproxy/haproxy-1.5.16/sbin/haproxy -f /home/local/haproxy/haproxy.conf
+/home/local/haproxy/haproxy-1.5.16/sbin/haproxy -f /home/local/haproxy/haproxy-1.5.16/haproxy.conf
+
+#查看进程
+ps -ef | grep haproxy
+
+# 访问管理界面
+http://192.168.56.100:8888/admin  admin/123123
+http://192.168.56.110:8888/admin  admin/123123
+```
+
+搭建好`haproxy` 之后，访问的是访问`haproxy`,  然后`haproxy` 决定是访问哪个`mycat`,  然后`mycat` 再决定访问哪个`mysql`.
+
+`navicat` 链接`haproxy`， 注意端口是`48066`.
+
+可以测试将其中一台`mycat` 停掉，`haproxy` 端链接的依然能够工作。
+
+##### 安装 `keepAlived`
+
+* 原理和运行机制
+
+![a](./pics/mycat31.png)
+
+现在已经安装了2台`haproxy`，但是现在是单节点的，会有单点故障。搭建高可用的`haproxy`, 使用`keepAlived`
+
+对外暴露服务的不再是`haproxy`,而是一个虚拟的IP，称为`VIP`.
+
+VIP 是`keepAlived` 虚拟出的IP。
+
+对每台`haproxy` 机器上安装`keepAlived`, VIP 会和后端的2个机器的IP 进行绑定，同一个时间之后和其中一个IP 进行绑定。且二个机器之间会有一个心跳机制，当辅节点接受不到主节点的心跳之后，就会认为主节点挂了，然后主节点会像VIP 竞争绑定。
+
+会有一种情况就是`haproxy` 挂了，但是`keepAlived` 没有挂，还在发送心跳，此时备机是不会竞争VIP与其绑定。
+
+所以`keepAlived` 还会不断的去检查`haproxy` 是否还存活。如果`haproxy` 挂了，那么`keepAlived` 会尝试重启`haproxy`，重启不了，会杀死自己。
+
+##### 安装 keepAlived
+
+```shell
+# 减压
+tar -zxvf 
+
+# 借助 yum 安装，先安装
+yum install -y gcc openssl-devel popt-devel
+
+# 安装配置文件，执行他后会生产Makefile
+./configure --prefix=/usr/local/keepalived
+
+# 安装
+make & make install
+
+# 运行钱配置，将keepAlived 配置为系统服务
+cp /home/local/keepAlived/keepalived-1.4.5/keepalived/etc/init.d/keepalived /etc/init.d/
+mkdir /etc/keepalived
+cp /home/local/keepAlived/keepalived-1.4.5/keepalived/etc/keepalived/keepalived.conf /etc/keepalived/
+cp /home/local/keepAlived/keepalived-1.4.5/keepalived/etc/sysconfig/keepalived /etc/sysconfig/
+cp /usr/local/keepalived/sbin/keepalived /usr/sbin/
+
+# 修改keepAlived 配置文件， 在/etc/
+global_defs {
+	notification_email {
+		javadct@163.com
+	}
+	notification_email_from keepalived@showjoy.com
+	smtp_server 127.0.0.1
+	smtp_connect_timeout 30
+	#标识本节点
+	router_id haproxy01
+	vrrp_skip_check_adv_addr
+	vrrp_garp_interval 0
+	vrrp_gna_interval 0
+}
+
+# keepalived 会定时执行脚本并对脚本执行的结果进行分析，动态调整 vrrp_instance 的优先级
+vrrp_script chk_haproxy {
+	# 检测 haproxy 状态的脚本路径
+	script "/etc/keepalived/haproxy_check.sh"
+	#检测时间间隔
+	interval 2
+	#如果条件成立，权重+2
+	weight 2
+}
+
+vrrp_instance VI_1 {
+	#主机配MASTER，备机配BACKUP
+	state MASTER
+	#所在机器网卡
+	interface enp0s8
+	virtual_router_id 51
+	#数值越大优先级越高
+	priority 120
+	advert_int 1
+	authentication {
+		auth_type PASS
+		auth_pass 1111
+	}
+	## 将 track_script 块加入 instance 配置块
+    track_script {
+    	chk_haproxy ## 检查 HAProxy 服务是否存活
+    }
+	virtual_ipaddress {
+		#虚拟IP
+		192.168.56.200
+	}
+}
+
+# 在配置备 keepAlived，需要修改 router_id state interface priority
+# check 脚本
+#!/bin/bash
+
+A=`ps -C haproxy --no-header | wc -l`
+
+if [ $A -eq 0 ];then
+
+  /usr/local/haproxy/sbin/haproxy -f /usr/local/haproxy/haproxy.conf
+
+  echo "haproxy restart ..." &> /dev/null
+
+  sleep 1
+
+  if [ `ps -C haproxy --no-header | wc -l` -eq 0 ];then
+
+    /etc/init.d/keepalived stop
+
+    echo "stop keepalived" &> /dev/null
+
+  fi
+
+fi
+
+# 启动
+service keepalived start
+```
+
+测试，访问VIP`192.168.56.200` 并访问`48066` 端口， 借助指令
+
+![a](./pics/mycat32.png)
+
+看出VIP 的mac 地址和 100 机器的mac 地址是一样的，所以此时VIP 是请求到100机器的mycat 中。这台机器的`keepAlived` 也是配置了`master` 的，
+
+此时将`100` 机器上的`keepAlived` 关闭
+
+![a](./pics/mycat33.png)
+
+此时，VIP 的mac 地址就和110 的机器一样的，也就是此时请求转发到了`backup` 备用`mycat` 中。
+
+整个过程中，链接到`VIP` 的客户端访问数据库一直是可用的。
+
+
 

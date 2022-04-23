@@ -13,7 +13,7 @@
 
 在同一个pod里面的多个容器共享：
 
-* 网络栈： 所以容器中的服务所暴露的端口是不能一样的，共享网络命名空间
+* 网络栈： 所有容器中的服务所暴露的端口是不能一样的，共享网络命名空间
 * 存储
 
 这些共享的内容在`pause` 根容器中存在
@@ -24,11 +24,13 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 
 > 现在创建容器，一个容器运行一个应用，是单进程的方式，一容器一个进程跑多个应用，管理不好
 >
-> Pod 是多进程的方式，可以运行多个应用程序
+> Pod 是多进程的方式，可以运行多个应用程序，为了微服务，一个 Pod 中运行多个容器-多个服务，如果没有Pod，那么一个容器一个网络空间，微服务下管理会比较麻烦。
+>
+> 
 >
 > Pod 的存在为了亲密性而应用
 >
-> * 多个应用之间进行交互，放在一个Pod 中调用更加方便(同一个网络命名空间中)
+> * 多个应用之间进行交互，放在一个Pod 中调用更加方便(同一个网络命名空间以及存储)
 
 **镜像拉取策略**
 
@@ -209,61 +211,72 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 >
 > controller 又被称为是 `工作负载`
 
-----
+##### RC&RS&Deployment
 
-* ReplicationController & ReplicaSet & Deployment
+> * ReplicationController 控制 pod 的副本数不能多不能少(ReplicaSet 取代ReplicationController )，始终保持用户定义的副本数
+> * Repl icaSet：和ReplicationController一样的功能，没有本质不同，RS**支持集合式的 selector**(通过labels 匹配)
+>
+> > 举个例子：例如学校开运动会，给每个班安排任务情况
+> >
+> > RC管理：假如只有一个班级，那么将这个班级拉倒操场然后安排通知该班的任务，但是如果是20班级那么久复杂了
+> >
+> > RS管理：每个班有一个代表，将每个班代表拉倒操场安排通知改版的任务，这个代表就是班级的标签(Selector)。
+> >
+> > **RC 在小集群中是适用的。当集群大了之后RS 就可以发挥作用了。**
+> >
+> > 但是**RS** 不支持滚动更新。
+>
+> * Deployment：部署无状态应用
+>
+>   支持rolling-update(创建一个删除一个，而不是全部删除，然后在创建)，**虽然ReplicaSet 是可以独立使用的，但是一般还是建议使用 Deployment 来自动管理  ReplicaSet**，这样就无序担心和 其他机制的不兼容问题（ReplicaSet不支持 rolling-update)。
+>
+> ![a](./pic/rolling-update.png)
+>
+> Deployment： 可以查看升级历史各个版本，而且还可以回到某个版本 `kubectl rollout history deployment web`,  回滚到上个版本`kubectl rollout undo deployment web`，回滚到指定版本`kubectl rollout undo deployment web --to-revision=2`
+>
+> 弹性伸缩：改变副本数量
+>
+> `kubectl scale deployment web --repliccas=10` 由原来的副本数创建到现在的副本数
+>
+> **deployment 并不是直接管理的 Pod，而是通过RS 管理Pod**
 
-  > * ReplicationController 控制 pod 的副本数不能多不能少(ReplicaSet 取代ReplicationController )
-  >
-  > * ReplicaSet：和ReplicationController一样的功能，而且支持集合式的 selector(通过labels 匹配)
-  >
-  > * Deployment：部署无状态应用
-  >
-  >   支持rolling-update(创建一个删除一个，而不是全部删除，然后在创建)，虽然ReplicaSet 是可以独立使用的，但是一般还是建议使用 Deployment 来自动管理  ReplicaSet，这样就无序担心和 其他机制的不兼容问题（ReplicaSet不支持 rolling-update)。
-  >
-  > ![a](./pic/rolling-update.png)
-  >
-  > Deployment： 可以查看升级历史各个版本，而且还可以回到某个版本 `kubectl rollout history deployment web`,  回滚到上个版本`kubectl rollout undo deployment web`，回滚到指定版本`kubectl rollout undo deployment web --to-revision=2`
-  >
-  > 弹性伸缩：改变副本数量
-  >
-  > `kubectl scale deployment web --repliccas=10` 由原来的副本数创建到现在的副本数
-  >
-  > **deployment 并不是直接管理的 Pod，而是通过RS 管理Pod**
 
-* HPA(Horizontal Pod Autosccaling) 仅适合用于 Deployment 和 ReplicaSet， 在V1 版本中仅支持根据Pod 的 CPU 利用率扩容，在 v1aplha 版本中，支持根据内存和用户自定义的 metric 扩容
 
-  > ![a](./pic/hpa.png)
+##### HPA
 
-* StatefullSet
+(Horizontal Pod Autosccaling) 仅适合用于 Deployment 和 ReplicaSet， 在V1 版本中仅支持根据Pod 的 CPU 利用率扩容，在 v1aplha 版本中，支持根据内存和用户自定义的 metric 扩容，**根据资源使用情况，自动缩/扩容**
 
-  > 解决有状态服务的问题，对应Deployment 和 ReplicaSets 是为了无状态服务而设计，其应用场景
-  >
-  > * 稳定的持久化存储，基于PVC 实现
-  > * 稳定的网络标志： Pod 重新调度之后其 PodName 和 HostName 不变，基于Headless Service(没有Cluster IP 的 service) 来实现
-  > * 有序部署，有序扩展，既Pod 是有顺序的，在部署或者扩展的时候要依据定义的顺序依次进行
-  > * 有序收缩，有序删除(倒序的，从N-1 到 0)
+> ![a](./pic/hpa.png)
 
-* DeamonSet:
+##### StatefullSet
 
-  >  确保全部或者一些 Node 上运行一个Pod 的副本，当有Node 加入集群时，也会为他们新增一个Pod，当有Node 从集群移除时，这些Pod 也会被回收，删除DaemonSet 将会删除它创建的所有的Pod。
-  >
-  > 使用DaemonSet 的一些典型用法
-  >
-  > * 运行集群存储 daemon，例如在每个Node 上运行 glusterd、 ceph
-  > * 在每个Node 上运行日志收集 daemon、如 fluentd、logstash
-  > * 在每个 Node 上运行监控 daemon，如Prometheus Node Exporter
+> 解决有状态服务的问题，对应Deployment 和 RS 是为了无状态服务而设计，其应用场景
+>
+> * 稳定的**持久化存储**，基于PVC 实现
+> * 稳定的网络标志： Pod 重新调度之后其 PodName 和 HostName 不变，基于Headless Service(没有Cluster IP 的 service) 来实现
+> * **有序部署**，有序扩展，既Pod 是有顺序的，在部署或者扩展的时候要依据定义的顺序依次进行
+> * **有序收缩**，有序删除(倒序的，从N-1 到 0)
 
-* Job
+##### DeamonSet:
 
-  > 负责批处理你任务，既仅执行一次的任务，它保证批处理任务的一个或多个Pod 成功结束
+>  确保全部或者一些 **Node 上动态的只运行一个Pod 的副本** ，当有Node 加入集群时，也会为他们新增一个Pod，当有Node 从集群移除时，这些Pod 也会被回收，删除DaemonSet 将会删除它创建的所有的Pod。
+>
+> 使用DaemonSet 的一些典型用法
+>
+> * 运行集群存储 daemon，例如在每个Node 上运行 glusterd、 ceph
+> * 在每个Node 上运行日志收集 daemon、如 fluentd、logstash
+> * 在每个 Node 上运行监控 daemon，如Prometheus Node Exporter
 
-* Cron Job
+##### Job
 
-  > 管理基于时间的 Job
-  >
-  > * 在给定时间点只运行一次
-  > * 周期性在给定时间点运行
+> 运行批任务，负责批处理任务，既仅执行一次的任务，执行完就退出。它保证批处理任务的一个或多个Pod 成功结束
+
+##### Cron Job
+
+> 运行批任务，具有定时调度功能。
+>
+> * 在给定时间点只运行一次
+> * 周期性在给定时间点运行
 
 ---
 
@@ -325,6 +338,31 @@ Deployment 其他操作
 > 查看回滚状态`kubectl rollout history deployment/nginx-deployment` 
 >
 > 回滚到指定的版本 kubectl rollout undo deployment/nginx-deployment --to-revision=2` 
+
+---
+
+##### 总结
+
+控制器：
+
+* RC：副本数量和期望值之间的管理.无状态应用：
+* RS：RC + 集合式的标签选择器。无状态应用：
+* Deployment:  滚动更新以及回滚。无状态应用：
+* HPA: 根据资源使用情况，自动调整副本数量，依赖于RC/RS/Deployment。无状态应用：
+
+
+
+特殊场景
+
+* `Job` 批处理
+* `Cron Job` 定时执行`Job`
+* `DeamonSet` 每个`Node` 上有一个`Pod`
+
+
+
+有状态
+
+* statefulset
 
 ---
 

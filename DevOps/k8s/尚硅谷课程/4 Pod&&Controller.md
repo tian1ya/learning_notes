@@ -16,7 +16,7 @@
 * 网络栈： 所有容器中的服务所暴露的端口是不能一样的，共享网络命名空间
 * 存储
 
-这些共享的内容在`pause` 根容器中存在
+这些共享的内容在 `pause` 根容器中存在
 
 Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod 对象的，k8s 不会直接处理容器，而是 Pod，Pod 是由一个或者多个 container 组成
 
@@ -25,8 +25,6 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 > 现在创建容器，一个容器运行一个应用，是单进程的方式，一容器一个进程跑多个应用，管理不好
 >
 > Pod 是多进程的方式，可以运行多个应用程序，为了微服务，一个 Pod 中运行多个容器-多个服务，如果没有Pod，那么一个容器一个网络空间，微服务下管理会比较麻烦。
->
-> 
 >
 > Pod 的存在为了亲密性而应用
 >
@@ -127,60 +125,55 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 >
 > Master 节点
 >
-> > Created pod apiserver 将创建节点这个请求写到 etcd 中
-> >
-> > scheduler 会去监控 etcd，当有创建新的 pod 请求之后，通过调度算法将调度创建一个 Pod 的任务通过apiserver写到 etcd
+>> Created pod apiserver 将创建节点这个请求写到 etcd 中
+>>
+>> scheduler 会去监控 etcd，当有创建新的 pod 请求之后，通过调度算法将调度创建一个 Pod 的任务通过apiserver写到 etcd
+>>
 >
 > Node 节点
 >
-> > Node 也会去监控etcd，当调度器给某个 node 节点分发了创建 pod 的任务之后，调度器使用本地的 docker 创建pod，并且将创建的 pod 的一些信息会写到 etcd 中。
+>> Node 也会去监控etcd，当调度器给某个 node 节点分发了创建 pod 的任务之后，调度器使用本地的 docker 创建pod，并且将创建的 pod 的一些信息会写到 etcd 中。
+>>
 >
 > 影响到调度的一些属性
 >
-> > 1. Pod 的 资源限制，resource 中的资源清单，根据request 找到足够 node 节点进行调度
-> >
-> > 2. 节点选择器标签影响Pod 调度  `nodeSelector` 选择一个Node 去创建 Pod， 可以通过米尼古拉在某台机器上给你某个Node 一个标签，`kubectl label node kube-node-1 env_role=prod` 通过命令 `kubecctl get nodes kube-node-1 --show-labels` 查看node 的label
-> >
-> > 3. 节点**亲和性** `nodeAffinity` 和 `nodeSelector` 基本一样，根据节点上标签约束来绝对Pod 调度到那些节点上。支持常用操作符号： `In NotIn Exists Gt Lt DoesNotExists`
-> >
-> >    1. 硬亲和性：约束条件必须满足
-> >    2. 软亲和性：尝试满足，不保证
-> >
-> > 4. 污点和污点容忍
-> >
-> >    1. `nodeSelector 和 NodeAffinity` Pod 调度到某个节点上，是属于Pod的属性，调度的时候实现
-> >
-> >       `Taint污点` 节点不做普通分配调度，是节点属性，节点不做普通分配调度，是节点属性
-> >
-> >    2. 使用场景
-> >
-> >       1. 专用节点
-> >       2. 配置特点硬件节点
-> >       3. 基于Taint 驱逐
-> >
-> >    3. 查看节点污点
-> >
-> >       `kubectl describe node kube-node-1 | grep Taint`
-> >
-> >       会有三个值 
-> >
-> >       `NoSchedule: 一定不被调度`
-> >
-> >       `PreferNotSchedule` 尽量不被调度，和软亲和性类似
-> >
-> >       `NoExecute` 不会被调度，并且会驱逐Node 已有Node
-> >
-> >    4. 为节点添加污点
-> >
-> >       `kubectl taint node [node] key=value:[污点的那三个值]`
-> >
-> >    5. 删除污点
-> >
-> >    6. 污点容忍
-> >
-> >       就算是配置了`NoSchedule: 一定不被调度` pod 也被调度到
-> >
-> >       配置 `tolerations`
+>> 1. Pod 的 资源限制，resource 中的资源清单，根据request 找到足够 node 节点进行调度
+>> 2. 节点选择器标签影响Pod 调度  `nodeSelector` 选择一个Node 去创建 Pod， 可以通过米尼古拉在某台机器上给你某个Node 一个标签，`kubectl label node kube-node-1 env_role=prod` 通过命令 `kubecctl get nodes kube-node-1 --show-labels` 查看node 的label
+>> 3. 节点**亲和性** `nodeAffinity` 和 `nodeSelector` 基本一样，根据节点上标签约束来绝对Pod 调度到那些节点上。支持常用操作符号： `In NotIn Exists Gt Lt DoesNotExists`
+>>
+>>    1. 硬亲和性：约束条件必须满足
+>>    2. 软亲和性：尝试满足，不保证
+>> 4. 污点和污点容忍
+>>
+>>    1. `nodeSelector 和 NodeAffinity` Pod 调度到某个节点上，是属于Pod的属性，调度的时候实现
+>>
+>>       `Taint污点` 节点不做普通分配调度，是节点属性，节点不做普通分配调度，是节点属性
+>>    2. 使用场景
+>>
+>>       1. 专用节点
+>>       2. 配置特点硬件节点
+>>       3. 基于Taint 驱逐
+>>    3. 查看节点污点
+>>
+>>       `kubectl describe node kube-node-1 | grep Taint`
+>>
+>>       会有三个值
+>>
+>>       `NoSchedule: 一定不被调度`
+>>
+>>       `PreferNotSchedule` 尽量不被调度，和软亲和性类似
+>>
+>>       `NoExecute` 不会被调度，并且会驱逐Node 已有Node
+>>    4. 为节点添加污点
+>>
+>>       `kubectl taint node [node] key=value:[污点的那三个值]`
+>>    5. 删除污点
+>>    6. 污点容忍
+>>
+>>       就算是配置了 `NoSchedule: 一定不被调度` pod 也被调度到
+>>
+>>       配置 `tolerations`
+>>
 
 ---
 
@@ -216,15 +209,16 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 > * ReplicationController 控制 pod 的副本数不能多不能少(ReplicaSet 取代ReplicationController )，始终保持用户定义的副本数
 > * Repl icaSet：和ReplicationController一样的功能，没有本质不同，RS**支持集合式的 selector**(通过labels 匹配)
 >
-> > 举个例子：例如学校开运动会，给每个班安排任务情况
-> >
-> > RC管理：假如只有一个班级，那么将这个班级拉倒操场然后安排通知该班的任务，但是如果是20班级那么久复杂了
-> >
-> > RS管理：每个班有一个代表，将每个班代表拉倒操场安排通知改版的任务，这个代表就是班级的标签(Selector)。
-> >
-> > **RC 在小集群中是适用的。当集群大了之后RS 就可以发挥作用了。**
-> >
-> > 但是**RS** 不支持滚动更新。
+>> 举个例子：例如学校开运动会，给每个班安排任务情况
+>>
+>> RC管理：假如只有一个班级，那么将这个班级拉倒操场然后安排通知该班的任务，但是如果是20班级那么久复杂了
+>>
+>> RS管理：每个班有一个代表，将每个班代表拉倒操场安排通知改版的任务，这个代表就是班级的标签(Selector)。
+>>
+>> **RC 在小集群中是适用的。当集群大了之后RS 就可以发挥作用了。**
+>>
+>> 但是**RS** 不支持滚动更新。
+>>
 >
 > * Deployment：部署无状态应用
 >
@@ -232,21 +226,192 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 >
 > ![a](./pic/rolling-update.png)
 >
-> Deployment： 可以查看升级历史各个版本，而且还可以回到某个版本 `kubectl rollout history deployment web`,  回滚到上个版本`kubectl rollout undo deployment web`，回滚到指定版本`kubectl rollout undo deployment web --to-revision=2`
+> Deployment： 可以查看升级历史各个版本，而且还可以回到某个版本 `kubectl rollout history deployment web`,  回滚到上个版本 `kubectl rollout undo deployment web`，回滚到指定版本 `kubectl rollout undo deployment web --to-revision=2`
 >
 > 弹性伸缩：改变副本数量
 >
 > `kubectl scale deployment web --repliccas=10` 由原来的副本数创建到现在的副本数
 >
 > **deployment 并不是直接管理的 Pod，而是通过RS 管理Pod**
+>
+> Deployment > RS > Pod
+
+```yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: fronted
+spec:
+  replicas: 3
+  selector: 
+    app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: pho-redis
+        image: wangyanglinux/myapp:v1
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+          name: zhangsan
+          value: "123"
+        ports:
+          containerPort: 80
+
+# 注意这里的spec.selector 下的标签个数只能只要比  spec.template.metadata.labels 下的标签等于大于
+# 任意删除pod，k8s 还会将pod 重新拉起来。
+
+kubectl label pod fronted-ktjh app=myapp2
+
+# 如果修改其中一个pod 的label，那么rc 就会再拉起来一个pod，修改了label 的pod 就会失去rc 的控制
+# 使用rs 的方式
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: fronted
+spec:
+  replicas: 2
+  selector: 
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: pho-redis
+        image: wangyanglinux/myapp:v1
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+          name: zhangsan
+          value: "123"
+        ports:
+        - containerPort: 80
+
+# rs 比 rc 多了一个标签选择的方式
+# selector.matchExpressions 目前支持如下几种键值对方式
+# 1. In: label 的值在某个列表中
+# 2. NotIn: label 的值不在某个列表中
+# 3. Exists: 某个 labels 存在
+# 4. DoesNotExist: 某个 label 不存在
+
+# 下面的列子只要 存在 app 的key 就可以，值是多少无所谓
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: fronted
+spec:
+  replicas: 2
+  selector: 
+    matchExpressions:
+      - key: app
+	operator: Exists
+  template:
+    metadata:
+      labels:
+        app: nginx # 这里只需要存在 app 的key 就可以，其他无所谓
+    spec:
+      containers:
+      - name: pho-redis
+        image: wangyanglinux/myapp:v1
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+          name: zhangsan
+          value: "123"
+        ports:
+        - containerPort: 80
+
+# 及时是执行下面的命令修改 label，只要 app 不改，pod 个数是不会变化的
+# kubectl label pod fronted-ktjh app=myapp2 --overwrite
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: fronted
+spec:
+  replicas: 2
+  selector: 
+    matchExpressions:
+      - key: app
+	operator: In
+        values:
+        - nginx
+        - nginx2
+  template:
+    metadata:
+      labels:
+        app: nginx # 这里只需要存在 app 的key 就可以，其他无所谓
+    spec:
+      containers:
+      - name: pho-redis
+        image: wangyanglinux/myapp:v1
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+          name: zhangsan
+          value: "123"
+        ports:
+        - containerPort: 80
+
+# RS 的内容均可以使用在Deployment 上
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fronted
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx 
+    spec:
+      containers:
+      - name: pho-redis
+        image: wangyanglinux/myapp:v1
+        ports:
+        - containerPort: 80
+
+# deployment 是通过 rs 管理pod，所以创建 deployemnt 的时候
+# 可以看到一个 deployemnt， 一个 rs， 2个 pod
+
+# 扩容
+kubectl scale deployment fronted --replicas 3
+
+# 修改容器镜像 {镜像名字}={镜像版本}
+kubectl set image deployment fronted pho-redis=wangyanglinux/myapp:v2
+
+# 回滚
+kubectl rollout undo deployment fronted
+
+# 经过上面的修改镜像，回滚操作，然后再执行
+cur {pod-ip}
+# 根据结果就能看到镜像版本的变化
+
+# 查看所有变化版本
+kubectl rollout history deployment fronted
+# 以上的命令在查看版本的时候不会记录CHANEG-CAUSE
+
+# 记录 CHANGE-CAUSE
+kubectl apply -f xxx.yaml --record
+
+# 回滚版本
+kubectl rollout undo deployment xxx --to-revision=2
 
 
+
+```
 
 ##### HPA
 
 (Horizontal Pod Autosccaling) 仅适合用于 Deployment 和 ReplicaSet， 在V1 版本中仅支持根据Pod 的 CPU 利用率扩容，在 v1aplha 版本中，支持根据内存和用户自定义的 metric 扩容，**根据资源使用情况，自动缩/扩容**
-
-> ![a](./pic/hpa.png)
 
 ##### StatefullSet
 
@@ -259,7 +424,7 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 
 ##### DeamonSet:
 
->  确保全部或者一些 **Node 上动态的只运行一个Pod 的副本** ，当有Node 加入集群时，也会为他们新增一个Pod，当有Node 从集群移除时，这些Pod 也会被回收，删除DaemonSet 将会删除它创建的所有的Pod。
+> 确保全部或者一些 **Node 上动态的只运行一个Pod 的副本** ，当有Node 加入集群时，也会为他们新增一个Pod，当有Node 从集群移除时，这些Pod 也会被回收，删除DaemonSet 将会删除它创建的所有的Pod。
 >
 > 使用DaemonSet 的一些典型用法
 >
@@ -270,6 +435,15 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 ##### Job
 
 > 运行批任务，负责批处理任务，既仅执行一次的任务，执行完就退出。它保证批处理任务的一个或多个Pod 成功结束
+>
+> 特殊说明
+>
+> 1. spec.template 格式同pod
+> 2. RestartPolicy 仅仅支持Never 和 OnFailure
+> 3. 单个Pod 时候，默认Pod 成功运行后Job 就结束
+> 4. `.spec.completions` 标志Job 结束需要成功运行的Pod 个数，默认为1
+> 5. `.spec.parallelism` 标志并行运行的Pod 个数，默认为1
+> 6. `.spec.activeDeadlineSeconds` 标志失败Pod 的重试最大时间，超过这个时间就不会继续重试
 
 ##### Cron Job
 
@@ -277,32 +451,35 @@ Pod 是K8s 最基本的单元，其他的资源对象都是用来支撑扩展Pod
 >
 > * 在给定时间点只运行一次
 > * 周期性在给定时间点运行
+>
+> CronJob > Job > Job
 
 ---
 
 ```yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-	name: nginx-deployment
-	
-# 这里指定的是一个 Deployment 语法
+  name: dse
+  labels:
+    app: dse
 spec:
-	selector:
-		matchLabels:
-			app: nginx
-	replicas: 2
-# 在 Deployment 中嵌套 Pod 的语法
-	template:
-		metadata:
-			labels:
-				app: nginx
-		spec:
-			containers:
-			- name: nginx
-				image: nginx:1.14.2
-				ports:
-				- containerPort: 80
+  selector:
+    matchLabels:
+      name: dse
+  template:
+    metadata:
+      labels:
+        name: dse
+    spec:
+      containers:
+      - name: dse
+        image: wangyanglinux/myapp:v1
+
+### Job
+
+
+
 ```
 
 > RS 中嵌套了一个 pod
@@ -321,7 +498,7 @@ Deployment 的扩容
 
 Deployment 更新镜像
 
-> `kubectl set image deployment/nginx-deployment nginx=nginx:1.18.0-alpine` 
+> `kubectl set image deployment/nginx-deployment nginx=nginx:1.18.0-alpine`
 
 Deployment 回滚
 
@@ -333,11 +510,11 @@ Deployment 可以保证在升级时候只有一定数量的Pod 是 down  的，�
 
 Deployment 其他操作
 
-> 查看回滚状态`kubectl rollout status deployment/nginx-deployment`
+> 查看回滚状态 `kubectl rollout status deployment/nginx-deployment`
 >
-> 查看回滚状态`kubectl rollout history deployment/nginx-deployment` 
+> 查看回滚状态 `kubectl rollout history deployment/nginx-deployment`
 >
-> 回滚到指定的版本 kubectl rollout undo deployment/nginx-deployment --to-revision=2` 
+> 回滚到指定的版本 kubectl rollout undo deployment/nginx-deployment --to-revision=2`
 
 ---
 
@@ -350,15 +527,11 @@ Deployment 其他操作
 * Deployment:  滚动更新以及回滚。无状态应用：
 * HPA: 根据资源使用情况，自动调整副本数量，依赖于RC/RS/Deployment。无状态应用：
 
-
-
 特殊场景
 
 * `Job` 批处理
-* `Cron Job` 定时执行`Job`
-* `DeamonSet` 每个`Node` 上有一个`Pod`
-
-
+* `Cron Job` 定时执行 `Job`
+* `DeamonSet` 每个 `Node` 上有一个 `Pod`
 
 有状态
 
@@ -427,18 +600,3 @@ CronJob  基于时间管理的 Job
 > * .spec.completions 标志 job 运行结束需要成功运行的 pod 个数，默认为1
 > * .spec.parallelism 标志并行运行的pod 个数，默认为1
 > * .spec.失败pod 的重试最大时间，超过这个 时间不会继续重试
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

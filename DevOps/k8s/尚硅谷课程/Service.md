@@ -14,9 +14,7 @@ Service: 定义一组Pod 的访问规则
 > service 类型
 >
 > * clusterIP： 集群内部使用(默认)，自动分配一个仅仅 cluster 内部可以访问的虚拟的 IP
->
-> * NodePort： 对外访问应用使用，在ClusterIP 基础上为Service 在每台机器上绑定一个端口，这样就可以通过 <NodeIp>:NodePort 访问服务了。
->
+> * NodePort： 对外访问应用使用，在ClusterIP 基础上为Service 在每台机器上绑定一个端口，这样就可以通过 `<NodeIp>`:NodePort 访问服务了。
 > * LoadBalancer:  对外访问应用使用，共有云，公有云
 >
 > 无头servicec:
@@ -37,7 +35,7 @@ Service: 定义一组Pod 的访问规则
 
 ![a](./pic/net.png)
 
-将`ipvs` 换为 `iptables` 就是通过该种方式的网络
+将 `ipvs` 换为 `iptables` 就是通过该种方式的网络
 
 ---
 
@@ -45,7 +43,7 @@ Service: 定义一组Pod 的访问规则
 
 ![a](./pic/svc1.png)
 
->  clusterIP 主要在每个node 节点 使用 iptables(ipvs)， 将法向 clusterIP  对应端口的数据转发到kube-proxy 中，然后kube-proxy 自己内部实现有负载均衡的方法，并可以查询到这个 service 下对应的 pod 的地址和端口，进而将数据转发给对应的  pod 的地址和端口。
+> clusterIP 主要在每个node 节点 使用 iptables(ipvs)， 将发向 clusterIP  对应端口的数据转发到kube-proxy 中，然后kube-proxy 自己内部实现有负载均衡的方法，并可以查询到这个 service 下对应的 pod 的地址和端口，进而将数据转发给对应的  pod 的地址和端口。
 >
 > 为了实现上述的过程，需要 几个组件协同工作：
 >
@@ -116,7 +114,9 @@ spec:
 
 **Headless Service**
 
-> 有时候不需要负载均衡 ，以及单独的 `service IP` , 遇到这种情况，可以通过制定 `ClusterIP(spec.clusterIP)` 的值为 'None' 来创建 `Headless Service` 这类 Serviice 并不会分配 `clusterIP`  `kube-proxy` 不会处理他们，而且平台也不会为它们进行负载均衡和路由
+> 有时候不需要负载均衡 ，以及单独的 `service IP` , 遇到这种情况，可以通过制定 `ClusterIP(spec.clusterIP)` 的值为 'None' 来创建 `Headless Service` 这类 Serviice 并不会分配 `clusterIP`  `kube-proxy` 不会处理他们，而且平台也不会为它们进行负载均衡和路由。
+>
+> 为statefulSet 而使用，做域名解析
 
 ```yaml
 apiVersion: v1
@@ -130,12 +130,14 @@ spec:
 	clusterIP: "None"
 	ports:
 	- port: 80
-		targetPort: 80	
+		targetPort: 80
 ```
 
 **NodePort**
 
-> 对外访问应用使用，在ClusterIP 基础上为Service 在每台机器上绑定一个端口，这样就可以通过 <NodeIp>:NodePort 访问服务了。
+> 对外访问应用使用，在ClusterIP 基础上为Service 在每台机器上绑定一个端口，这样就可以通过 `<NodeIp>`:NodePort 访问服务了。
+>
+> 同时也会分陪一个内部ClusterIP
 
 ```yaml
 apiVersion: v1
@@ -153,4 +155,3 @@ spec:
 		port: 80
 		targetPort: 80
 ```
-

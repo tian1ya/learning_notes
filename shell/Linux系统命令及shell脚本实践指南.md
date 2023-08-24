@@ -55,19 +55,15 @@
 >
 > ```she
 > ~/Ifoods/devOps/shell » echo $name[0]                                                                                                                                                         
-> ~/Ifoods/devOps/shell » echo $name[1]                                                                                                                                                         
+> ~/Ifoods/devOps/shell » echo $name[1]                                                                 
 > 1
-> 
-> ~/Ifoods/devOps/shell » echo $name[2]                                                                                                                                                         
+> ~/Ifoods/devOps/shell » echo $name[2]                                                                 
 > 9
-> 
 > ~/Ifoods/devOps/shell » echo $name[4]
 > 4
-> 
 > 取出所有的数
-> ~/Ifoods/devOps/shell » echo $name[*] # 输出一整个字符串
-> 或者
-> ~/Ifoods/devOps/shell » echo $name[@] #输出以空格隔开的元素值
+> ~/Ifoods/devOps/shell » echo $name[*] # 输出一整个字符串或者
+> ~/Ifoods/devOps/shell » echo $name[@] # 输出以空格隔开的元素值
 > 1 9 3 4
 > 
 > 获取数组长度
@@ -132,8 +128,7 @@
 > 
 > 单引号中出现了单引号
 > ~/Ifoods/devOps/shell » echo 'It's your name'                                                                                                                                                 xuxliu@CNxuxliu-2
-> \
-> 无法识别结束
+> \无法识别结束
 > 
 > ~/Ifoods/devOps/shell » echo 'It'\''s your name'
 > It's your name
@@ -215,8 +210,8 @@
 > 11
 > ~/Ifoods » echo ${a} 执行let "c=(++a)"的时候，a先自增，然后将a复制给c，所以a和c都是11
 > 11
-> 
 > 如果是：
+> 
 > ~/Ifoods » let "c=(a++)"
 > ~/Ifoods » echo ${a}
 > 12
@@ -276,20 +271,20 @@
 > read -p "file do you want to test ? " filename
 > 
 > if [ ! -e "$filename" ];then
->         echo "The file does not exist"
->         exit 1
+>    echo "The file does not exist"
+>    exit 1
 > fi
 > 
 > if [ -r "$filename" ];then
->         echo "the file is not readable."
+>     echo "the file is not readable."
 > fi
 > 
 > if [ -w "$filename" ];then
->         echo "$filename is writable"
+>     echo "$filename is writable"
 > fi
 > 
 > if [ -x "$filename" ];then
->         echo "$filename is executable"
+>     echo "$filename is executable"
 > fi
 > ```
 >

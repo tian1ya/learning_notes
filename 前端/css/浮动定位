@@ -1,0 +1,379 @@
+#### 文档流
+
+正常文档流”和“脱离文档流”，根据float 的值会向左或者向右移动，知道它和外边界碰到父元素的内边距或者另一个浮动元素的外边界为之。
+
+文档流是指元素在页面中出现的先后顺序
+
+* 正常文档流
+
+>  是默认情况下的文档流，将一个页面从上到下分为一行一行的，其中块元素独占一行，相邻行内元素在每一行中按照从左到右排列直到该行排满。
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <div></div>
+    <span></span><span></span>
+    <p></p>
+    <span></span><i></i>
+    <img />
+    <hr />
+</body>
+</html>
+```
+
+正常的文档流结构为：
+
+![a](./pics/flow.png)
+
+`div、p、hr`都是块元素，因此独占一行。而`span、i、img`都是行内元素，因此如果两个行内元素相邻，就会位于同一行，并且从左到右排列。
+
+* 脱离文档流
+
+> 指的是脱离正常文档流，不会按照正常的块或者行内元素去布局，而是按照配置去向一定方向浮动。
+>
+> 使用浮动或者定位去改变的默认情况下的HTML文档结构
+>
+> 可以使用**浮动和定位**改变
+
+#### 浮动
+
+> 设置float属性让元素向左浮动或者向右浮动，以便让周围的元素或文本环绕着这个元素。
+
+```css
+float:取值;
+/*可以取值 left: 向左浮动；right: 向右浮动*/
+```
+
+```html
+<style type="text/css">
+    /*定义父元素样式*/
+    #father {
+      width: 300px;
+      background-color: #0C6A9D;
+      border: 1px solid silver;
+    }
+
+    /*定义子元素样式*/
+    #father div {
+      padding: 10px;
+      margin: 15px;
+    }
+
+    #son1 {
+      background-color: hotpink;
+      /*这里设置son1 的浮动方式*/
+    }
+
+    #son2 {
+      background-color: #FCD568;
+      /*这里设置son2 的浮动方式*/
+    }
+  </style>
+</head>
+
+<body>
+  <div id="father">
+    <div id="son1">box1</div>
+    <div id="son2">box2</div>
+  </div>
+</body>
+```
+
+![a](./pics/flow1.png)
+
+```css
+#son1 {
+      background-color: hotpink;
+      float: left;
+    }
+```
+
+![a](./pics/flow2.png)
+
+box1设置为左浮动，box1变成了浮动元素，因此此时**box1的宽度不再延伸，而是由内容宽度决定其宽度**, 此时box2是占整行的，也就是在box1的下面还是有box2的内容的，box1的部分是叠加的，只不是由于box1是浮动在正常文档流上面的，它挡住了box2的部分
+
+```css
+#son1 {
+   background-color: hotpink;
+   float: left;
+}
+
+#son2 {
+   background-color: #FCD568;
+   float: right;
+}
+```
+
+![a](./pics/flow4.png)
+
+box2变成了浮动元素，因此box2也跟box1一样，宽度不再延伸，而是由内容确定宽度。如果box2后面还有其他元素，则其他元素也会紧贴着box2。
+
+浮动，可以使得元素移到左边或者右边，并且允许后面的文字或元素环绕着它。浮动最常用于实现**水平方向**上的并排布局
+
+**父元素变成一条线了呢？其实这是浮动引起的问题**
+
+> 两个字元素都变为浮动的，脱离了文档流，父容器中没有内容给撑开，所以就变为一条线，且在文档流的最开始位置。
+
+##### 清除浮动
+
+浮动会影响周围元素，并且还会引发很多意想不到的问题。在CSS中，我们可以使用clear属性来清除浮动带来的影响。
+
+```css
+clear:取值;
+/*取值：left: 清除左浮动；right:清除右浮动；both: 清除左右浮动*/
+```
+
+```html
+<style type="text/css">
+    /*定义父元素样式*/
+    #father {
+      width: 300px;
+      background-color: #0C6A9D;
+      border: 1px solid silver;
+    }
+
+    /*定义子元素样式*/
+    #father div {
+      padding: 10px;
+      margin: 15px;
+    }
+
+    #son1 {
+      background-color: hotpink;
+      float: left;
+    }
+
+    #son2 {
+      background-color: #FCD568;
+      float: right;
+    }
+    // 空标签解决塌陷
+    .clear {
+      clear: both;
+    }
+  
+    // 伪类解决塌陷
+    // 这里本质上和添加空标签是一样的
+    // 在 father 后面加一个伪类，让伪类为块标签，内容是空，并且清除浮动
+    #father::after {
+      display: block;
+      content: "";
+      clear: both
+    }
+  </style>
+
+<body>
+  <div id="father">
+    <div id="son1">box1</div>
+    <div id="son2">box2</div>
+    <div class="clear">clear</div>
+  </div>
+</body>
+```
+
+![a](./pics/flow3.png)
+
+一般都是在浮动元素后面再增加一个空元素，然后为这个空元素定义clear:both;来清除浮动
+
+**在实际开发中，使用浮动之后如果发现有什么不对劲的地方，首先检查有没有清除浮动。**
+
+> *清除浮动不仅仅只有clear:both;，还有overflow:hidden，以及更为常用的伪元素*
+
+##### 特性
+
+1. 浮动只会对他后面的元素产生影响，中间的元素发送浮动，后面的元素就会越过浮动元素，往前排列。
+2. 文本不会被浮动元素覆盖，如上当box2浮动到box1下面的时候，box2的文本并不会跑到box1下面，被遮住
+3. 具备内联盒子的特性，其内容是由内容决定的。
+4. 支持块级盒子特性，很多块的样式属性可以设置，可以支持宽高。
+5. 浮动元素太多，一行放不下，会折行
+
+#### 定位
+
+可以通过`z-index` 来调整脱离文档的经过浮动/定位后的元素的高低。
+
+浮动布局比较灵活，但是不容易控制。而定位布局的出现，使得精准定位页面中的任意元素成为可能，页面布局操作变得更加随心所欲。同时也缺乏灵活性，也给空间大小和位置不确定的版面布局带来限制。
+
+布局定位通过position属性实现共有四种方式：
+
+* fixed 固定定位
+
+> 在滑动鼠标浏览器上下滑动的时候，始终固定在浏览器同一个位置
+
+* relative相对定位
+
+> 相对于它本来应该在的位置，进行一定的位移
+
+* absolute绝对定位
+
+> 最为广泛，因为它能够很精确地把元素定位到任意你想要的位置, **相对于浏览器定位，完全脱离文档流，在文档流之上独立的**
+
+* static：静态定位（默认）
+
+其中`top/right/bottom/left` 属性决定了该元素的最终位置。
+
+##### `fixed`
+
+被固定的元素不会随着滚动条的拖动而改变位置，结合`top`、`bottom`、`left`和`right`这四个属性一起使用的，其中`position:fixed;`使得元素成为固定定位元素，接着使用`top、bottom、left和right`这四个属性来设置元素**相对浏览器的位置**，不受祖先元素的影响
+
+```css
+<style type="text/css">
+    #first {
+      width: 120px;
+      height: 1800px;
+      border: 1px solid gray;
+      line-height: 600px;
+      background-color: #B7F1FF;
+    }
+
+    #second {
+      position: fixed;
+      /*设置元素为固定定位*/
+      top: 30px;
+      /*距离浏览器顶部 30px*/
+      left: 160px;
+      /*举例浏览器左部 160px*/
+      width: 60px;
+      height: 60px;
+      border: 1px solid silver;
+      background-color: hotpink;
+    }
+  </style>
+
+<body>
+  <div id="first">无定位的div元素</div>
+  <div id="second">固定定位的div元素</div>
+</body>
+```
+
+`second` 内容，在滑动鼠标浏览器上下滑动的时候，始终固定在浏览器同一个位置。
+
+**固定定位最常用于实现返回顶部功能**，这个效果非常经典，绝大多数网站都在使用。
+
+##### `relative`
+
+该元素的位置是相对于它的原始位置计算而来的
+
+*在默认情况下，固定定位元素的位置是相对浏览器而言，而相对定位元素的位置是相对于原始位置而言！*
+
+```html
+<style type="text/css">
+    #father {
+      margin-top: 30px;
+      margin-left: 30px;
+      border: 1px solid silver;
+      background-color: lightskyblue;
+    }
+
+    #father div {
+      width: 100px;
+      height: 60px;
+      margin: 10px;
+      background-color: hotpink;
+      color: white;
+      border: 1px solid white;
+    }
+
+    #son2 {
+      /*这里设置son2 的定位方式*/
+    }
+  </style>
+
+<body>
+  <div id="father">
+    <div id="son1">第一个无定位的div元素</div>
+    <div id="son2">相对定位的div元素</div>
+    <div id="son3">第二个无定位的div元素</div>
+  </div>
+</body>
+```
+
+![a](./pics/pos.png)
+
+为第二个div元素加入相对定位
+
+```css
+#son2 {
+      /*这里设置son2 的定位方式*/
+      position: relative;
+      top: 20px;
+      left: 40px;
+    }
+```
+
+![a](./pics/pos1.png)
+
+这么来看
+
+![a](./pics/pos2.png)
+
+相对定位元素的top和left是相对于该元素原始位置而言的。
+
+##### `absolute`
+
+绝对定位在几种定位方式中使用最为广泛，因为它能够很精确地把元素定位到任意你想要的位置。
+
+一个元素变成了绝对定位元素，这个元素就完全脱离文档流了，绝对定位元素的前面或者后面的元素会认为这个元素并不存在，**即这个元素浮于其他元素上面，它是独立出来的**
+
+绝对定位是相对于最近的非 `static` 的祖先元素定位(祖先元素没有定位)，则它是相对于可视区域定位 。
+
+当祖先元素有定位，且定位是非`static` 类型，例如`relative` 那么它的可视区就变为了祖先
+
+```html
+<style type="text/css">
+    #father {
+      padding: 15px;
+      background-color: #0C6A9D;
+      border: 1px solid silver;
+    }
+    #father div {
+      padding: 10px;
+    }
+    #son1 {
+      background-color: #FCD568;
+    }
+    #son2 {
+      background-color: hotpink;
+      position: absolute;
+      top: 20px;
+      right: 40px;
+    }
+    #son3 {
+      background-color: lightskyblue;
+    }
+  </style>
+
+<body>
+  <div id="father">
+    <div id="son1">box1</div>
+    <div id="son2">box2</div>
+    <div id="son3">box3</div>
+  </div>
+</body>
+```
+
+![a](./pics/pos3.png)
+
+绝对定位元素的top和left是相对于浏览器而言的.
+
+```css
+#father {
+       /* padding: 15px; */
+       background-color: #0C6A9D;
+       border: 1px solid silver;
+       position: relative;
+     }
+
+```
+
+![a](./pics/ccccc.png)
+
+
+
+##### static
+
+默认情况下，也就是元素没有指定position属性时，一般情况下我们使用不到position:static

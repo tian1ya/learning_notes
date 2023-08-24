@@ -59,17 +59,22 @@ cut -d, -f 1 seasonal/spring.csv
 
 > `cut` is a simple-minded command. In particular, it doesn't understand quoted strings. If, for example, your file is:
 >
-> > me,Age
-> > "Johel,Ranjit",28
-> > "Sharma,Rupinder",26
+>> me,Age
+>> "Johel,Ranjit",28
+>> "Sharma,Rupinder",26
+>>
 >
 > cut -f 2 -d , sam
 >
-> > Age
-> > Ranjit"
-> > Rupinder"
+>> Age
+>> Ranjit"
+>> Rupinder"
+>>
 >
 > rather than everyone's age, because it will think the comma between last and first names is a column separator.
+>
+> 以每一行为一个处理对象的，可以**对一行字符串进行多种模式匹配的剪切操作**，也可以对一个排列整齐的文本进行操作
+>
 
 **rerun**
 
@@ -106,11 +111,13 @@ $ !8
 
 > Invert the match to find all of the lines that *don't* contain the word `molar` in `seasonal/spring.csv`, and show their line numbers. Remember, it's considered good style to put all of the flags *before* other values like filenames or the search term "molar".
 >
-> > cat seasonal/spring.csv | grep -n -v molar
+>> cat seasonal/spring.csv | grep -n -v molar
+>>
 >
 > Count how many lines contain the word `incisor` in `autumn.csv` and `winter.csv` combined. (Again, run a single command from your home directory.)
 >
-> > grep -c incisor seasonal/autumn.csv seasonal/winter.csv
+>> grep -c incisor seasonal/autumn.csv seasonal/winter.csv
+>>
 
 **\>**
 
@@ -135,8 +142,6 @@ cut -d , -f 2 seasonal/summer.csv | grep -v Tooth | head -n 1
 > -w pring words counts
 
 > grep 2017-07 seasonal/spring.csv | wc -l
-
-
 
 **How can I specify many files at once?**
 
@@ -240,4 +245,3 @@ df 查看系统中磁盘的使用情况，硬盘已用和可用的存储空间�
 ```shell
 查看内存使用情况
 ```
-

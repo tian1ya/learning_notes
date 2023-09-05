@@ -8,22 +8,6 @@
 | MyCat入门         | MyCat高级     | MyCat架构剖析       |               |
 | MyCat配置文件详解 |               |                     |               |
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## 1. MyCat简介
 
 ### 1.1 MyCat 引入

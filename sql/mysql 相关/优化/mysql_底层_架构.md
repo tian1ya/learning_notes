@@ -98,7 +98,7 @@ alter table tb add index dept_name_index(dept,name);
 
 **注意**
 
-* 当一个字段是 `priimary key` 那么它自动就是**主键索引**
+* 当一个字段是 `primary key` 那么它自动就是**主键索引**
 
 ```sql
 -- 删除索引

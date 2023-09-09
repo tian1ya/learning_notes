@@ -131,7 +131,7 @@ grant replication slave on *.* to 'repl'@'192.168.153.%' identified by 'repl';
 
 ```shell
 #启动新的镜像，设置server-id和开启logbin
-docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD="root" -d mysql:5.7.25 --server-id=1 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --log-bin=mysql-bin --sync_binlog=1
+docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD="password" -d mysql:5.7.25 --server-id=1 --character-set-server=utf8mb4
 
 CREATE USER 'repl'@'172.17.%.%' IDENTIFIED BY 'repl';
 

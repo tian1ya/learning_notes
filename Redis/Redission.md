@@ -1,0 +1,1 @@
+redisson这个框架基于Redis的，重度依赖了Lua脚本和Netty实现的分布式锁，代码很牛逼，各种Future及FutureListener的异步、同步操作转换。 
